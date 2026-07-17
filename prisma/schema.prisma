@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ActorLabel {
+  CS
+  TCH
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+}
+
+enum MonthStatus {
+  BALANCED
+  NEEDS_ASSIGNMENT
+  UNDERFUNDED
+  CASH_FLOW_RISK
+  CLOSED
+  NEEDS_REVIEW
+}
+
+enum CashFlowTreatment {
+  CASH_DEBIT
+  CREDIT_CARD
+}
+
+enum PlannedStatus {
+  PLANNED
+  UNPLANNED
+}
+
+enum SavingsActivityType {
+  CONTRIBUTION
+  WITHDRAWAL
+}
+
+model Household {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  members   HouseholdMember[]
+  months    BudgetMonth[]
+}
+
+model HouseholdMember {
+  id          String     @id @default(cuid())
+  householdId String
+  label       ActorLabel
+  displayName String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  household   Household  @relation(fields: [householdId], references: [id])
+}
+
+model BudgetMonth {
+  id                           String      @id @default(cuid())
+  householdId                  String
+  year                         Int
+  month                        Int
+  startDate                    DateTime    @db.Date
+  endDate                      DateTime    @db.Date
+  startingCheckingBalanceCents Int
+  startingBalanceOverrideCents Int?
+  projectedEndingBalanceCents  Int?
+  actualEndingBalanceCents     Int?
+  status                       MonthStatus @default(NEEDS_REVIEW)
+  closedAt                     DateTime?
+  createdAt                    DateTime    @default(now())
+  updatedAt                    DateTime    @updatedAt
+  household                    Household   @relation(fields: [householdId], references: [id])
+}
+
+model Account {
+  id                   String      @id @default(cuid())
+  householdId          String
+  name                 String
+  type                 AccountType
+  startingBalanceCents Int
+  currentBalanceCents  Int?
+  isActive             Boolean     @default(true)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+}
+
+model AuditEvent {
+  id            String   @id @default(cuid())
+  householdId   String
+  actorMemberId String
+  entityType    String
+  entityId      String
+  action        String
+  fieldName     String?
+  oldValueJson  Json?
+  newValueJson  Json?
+  createdAt     DateTime @default(now())
+}

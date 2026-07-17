@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --font-display: Georgia;
+  --font-sans: Inter;
+  --font-mono: "SFMono-Regular";
+}
+
+html.light {
+  color-scheme: light;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(121, 167, 255, 0.18), transparent 28rem),
+    linear-gradient(135deg, #10131d 0%, #151928 50%, #0e1119 100%);
+  color: #f8fafc;
+}
+
+html.light body {
+  background: linear-gradient(135deg, #f7f1e3 0%, #eef2f7 100%);
+  color: #111827;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button, a, input, select, textarea {
+  outline-offset: 3px;
+}
+
+@media print {
+  nav, aside, .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}

@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: family_budget
+      POSTGRES_PASSWORD: family_budget
+      POSTGRES_DB: family_budget
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer:latest
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+
+  app:
+    build: .
+    depends_on:
+      - postgres
+    ports:
+      - "3200:3200"
+    environment:
+      DATABASE_URL: postgresql://family_budget:family_budget@postgres:5432/family_budget?schema=public
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_URL: http://localhost:3200
+      UPLOAD_DIR: /app/uploads
+      MAX_RECEIPT_UPLOAD_MB: 10
+      HOUSEHOLD_TIMEZONE: America/Chicago
+      HOUSEHOLD_PASSWORD_HASH: ${HOUSEHOLD_PASSWORD_HASH}
+    volumes:
+      - uploads:/app/uploads
+      - .:/app
+      - /app/node_modules
+
+volumes:
+  postgres-data:
+  uploads:
