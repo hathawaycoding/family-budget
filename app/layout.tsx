@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { themeHydrationScript } from "@/components/app-shell/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body>{children}</body>
+      <body><script dangerouslySetInnerHTML={{ __html: themeHydrationScript }} />{children}</body>
     </html>
   );
 }
