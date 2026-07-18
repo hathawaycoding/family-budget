@@ -24,6 +24,13 @@ Expected URLs:
 - App: `http://localhost:3200`
 - Adminer: `http://localhost:8080`
 
+After the containers are running, apply migrations and seed MVP2 starter data if the database is empty:
+
+```sh
+docker compose exec app npx prisma migrate dev
+docker compose exec app npm run prisma:seed
+```
+
 ## Database
 
 Generate Prisma client:
@@ -38,7 +45,7 @@ Create/run development migrations:
 npm run prisma:migrate
 ```
 
-Seed sample household rows:
+Seed complete MVP2 starter household rows:
 
 ```sh
 npm run prisma:seed

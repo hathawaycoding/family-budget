@@ -3,11 +3,14 @@ import { Card, Stat } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PieSummary } from "@/components/charts/budget-charts";
 import { formatWholeMoney } from "@/lib/money";
-import { categories, transactions } from "@/lib/sample-data";
-import { getMonthBundle } from "@/lib/reports";
+import { getBudgetData, getMonthBundle } from "@/lib/services/budget-data-service";
 
-export default function DashboardPage() {
-  const bundles = [getMonthBundle("2026-07"), getMonthBundle("2026-08")];
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const [data, july, august] = await Promise.all([getBudgetData(), getMonthBundle("2026-07"), getMonthBundle("2026-08")]);
+  const bundles = [july, august];
+  const { categories, transactions } = data;
   const categoryData = categories.slice(0, 5).map((category) => ({ name: category.name, value: transactions.flatMap((tx) => tx.splits).filter((split) => split.categoryId === category.id).reduce((sum, split) => sum + split.amountCents / 100, 0) }));
   const outflowData = bundles.map((bundle) => ({ name: bundle.month.label, value: (bundle.summary.assignedCents / 100) }));
   return (

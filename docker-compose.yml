@@ -24,7 +24,7 @@ services:
     ports:
       - "3200:3200"
     environment:
-      DATABASE_URL: postgresql://family_budget:family_budget@postgres:5432/family_budget?schema=public
+      DATABASE_URL: postgresql://family_budget:family_budget@postgres:5432/family_budget_mvp2?schema=public
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_URL: http://localhost:3200
       UPLOAD_DIR: /app/uploads

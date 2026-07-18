@@ -10,4 +10,4 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 EXPOSE 3200
-CMD ["sh", "-c", "npx prisma db push && rm -rf .next/dev && npm run dev"]
+CMD ["sh", "-c", "npx prisma migrate deploy && rm -rf .next/dev && npm run dev"]

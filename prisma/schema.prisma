@@ -42,23 +42,81 @@ enum SavingsActivityType {
   WITHDRAWAL
 }
 
+enum FundType {
+  EMERGENCY
+  SINKING
+}
+
+enum FundGoalMode {
+  KNOWN_DUE_DATE
+  OPEN_ENDED
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  EVERY_14_DAYS
+  MONTHLY
+  EVERY_6_MONTHS
+  YEARLY
+  CUSTOM
+}
+
 model Household {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  members   HouseholdMember[]
-  months    BudgetMonth[]
+  id                  String             @id @default(cuid())
+  name                String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  members             HouseholdMember[]
+  months              BudgetMonth[]
+  accounts            Account[]
+  recurrenceRules     RecurrenceRule[]
+  incomeSources       IncomeSource[]
+  incomeEntries       IncomeEntry[]
+  billTemplates       BillTemplate[]
+  billInstances       BillInstance[]
+  spendingCategories  SpendingCategory[]
+  transactions        Transaction[]
+  receipts            Receipt[]
+  plannedExpenses     PlannedExpense[]
+  savingsFunds        SavingsFund[]
+  savingsActivities   SavingsActivity[]
+  debtAccounts        DebtAccount[]
+  debtSnapshots       DebtSnapshot[]
+  debtPayments        DebtPayment[]
+  notes               Note[]
+  auditEvents         AuditEvent[]
+  reminders           Reminder[]
+  transfers           Transfer[]
 }
 
 model HouseholdMember {
-  id          String     @id @default(cuid())
-  householdId String
-  label       ActorLabel
-  displayName String
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  household   Household  @relation(fields: [householdId], references: [id])
+  id                    String            @id @default(cuid())
+  householdId           String
+  label                 ActorLabel
+  displayName           String
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  household             Household         @relation(fields: [householdId], references: [id])
+  createdIncomeEntries  IncomeEntry[]     @relation("IncomeEntryCreatedBy")
+  updatedIncomeEntries  IncomeEntry[]     @relation("IncomeEntryUpdatedBy")
+  createdBillInstances  BillInstance[]    @relation("BillInstanceCreatedBy")
+  updatedBillInstances  BillInstance[]    @relation("BillInstanceUpdatedBy")
+  createdTransactions   Transaction[]     @relation("TransactionCreatedBy")
+  updatedTransactions   Transaction[]     @relation("TransactionUpdatedBy")
+  uploadedReceipts      Receipt[]
+  createdExpenses       PlannedExpense[]  @relation("PlannedExpenseCreatedBy")
+  updatedExpenses       PlannedExpense[]  @relation("PlannedExpenseUpdatedBy")
+  createdSavings        SavingsActivity[] @relation("SavingsActivityCreatedBy")
+  updatedSavings        SavingsActivity[] @relation("SavingsActivityUpdatedBy")
+  createdSnapshots      DebtSnapshot[]
+  createdDebtPayments   DebtPayment[]     @relation("DebtPaymentCreatedBy")
+  updatedDebtPayments   DebtPayment[]     @relation("DebtPaymentUpdatedBy")
+  createdNotes          Note[]            @relation("NoteCreatedBy")
+  updatedNotes          Note[]            @relation("NoteUpdatedBy")
+  auditEvents           AuditEvent[]
+
+  @@unique([householdId, label])
 }
 
 model BudgetMonth {
@@ -77,6 +135,16 @@ model BudgetMonth {
   createdAt                    DateTime    @default(now())
   updatedAt                    DateTime    @updatedAt
   household                    Household   @relation(fields: [householdId], references: [id])
+  incomeEntries                IncomeEntry[]
+  billInstances                BillInstance[]
+  transactions                 Transaction[]
+  plannedExpenses              PlannedExpense[]
+  savingsActivities            SavingsActivity[]
+  debtSnapshots                DebtSnapshot[]
+  debtPayments                 DebtPayment[]
+  transfers                    Transfer[]
+
+  @@unique([householdId, year, month])
 }
 
 model Account {
@@ -89,6 +157,306 @@ model Account {
   isActive             Boolean     @default(true)
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
+  household            Household   @relation(fields: [householdId], references: [id])
+}
+
+model RecurrenceRule {
+  id             String              @id @default(cuid())
+  householdId    String
+  frequency      RecurrenceFrequency
+  interval       Int                 @default(1)
+  dayOfMonth     Int?
+  startDate      DateTime            @db.Date
+  customRuleJson Json?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  household      Household           @relation(fields: [householdId], references: [id])
+  incomeSources  IncomeSource[]
+  billTemplates  BillTemplate[]
+}
+
+model IncomeSource {
+  id                         String          @id @default(cuid())
+  householdId                String
+  name                       String
+  defaultExpectedAmountCents Int?
+  recurrenceRuleId           String?
+  isActive                   Boolean         @default(true)
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+  household                  Household       @relation(fields: [householdId], references: [id])
+  recurrenceRule             RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id])
+  entries                    IncomeEntry[]
+
+  @@unique([householdId, name])
+}
+
+model IncomeEntry {
+  id                   String           @id @default(cuid())
+  householdId          String
+  budgetMonthId        String
+  incomeSourceId       String
+  date                 DateTime         @db.Date
+  expectedAmountCents  Int
+  actualAmountCents    Int?
+  isRecurringGenerated Boolean          @default(false)
+  recurrenceGroupId    String?
+  createdByMemberId    String
+  updatedByMemberId    String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  household            Household        @relation(fields: [householdId], references: [id])
+  budgetMonth          BudgetMonth      @relation(fields: [budgetMonthId], references: [id])
+  incomeSource         IncomeSource     @relation(fields: [incomeSourceId], references: [id])
+  createdBy            HouseholdMember  @relation("IncomeEntryCreatedBy", fields: [createdByMemberId], references: [id])
+  updatedBy            HouseholdMember? @relation("IncomeEntryUpdatedBy", fields: [updatedByMemberId], references: [id])
+}
+
+model BillTemplate {
+  id                  String          @id @default(cuid())
+  householdId         String
+  name                String
+  category            String
+  expectedAmountCents Int
+  dueDay              Int?
+  recurrenceRuleId    String?
+  isAutopay           Boolean         @default(false)
+  isActive            Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  household           Household       @relation(fields: [householdId], references: [id])
+  recurrenceRule      RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id])
+  instances           BillInstance[]
+
+  @@unique([householdId, name])
+}
+
+model BillInstance {
+  id                  String           @id @default(cuid())
+  householdId         String
+  budgetMonthId       String
+  templateId          String?
+  name                String
+  category            String
+  expectedAmountCents Int
+  actualAmountCents   Int?
+  dueDate             DateTime         @db.Date
+  paidDate            DateTime?        @db.Date
+  isPaid              Boolean          @default(false)
+  isAutopay           Boolean          @default(false)
+  isSkipped           Boolean          @default(false)
+  createdByMemberId   String
+  updatedByMemberId   String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  household           Household        @relation(fields: [householdId], references: [id])
+  budgetMonth         BudgetMonth      @relation(fields: [budgetMonthId], references: [id])
+  template            BillTemplate?    @relation(fields: [templateId], references: [id])
+  createdBy           HouseholdMember  @relation("BillInstanceCreatedBy", fields: [createdByMemberId], references: [id])
+  updatedBy           HouseholdMember? @relation("BillInstanceUpdatedBy", fields: [updatedByMemberId], references: [id])
+  debtPayments        DebtPayment[]
+}
+
+model SpendingCategory {
+  id                     String             @id @default(cuid())
+  householdId            String
+  name                   String
+  baseMonthlyBudgetCents Int                @default(0)
+  isActive               Boolean            @default(true)
+  sortOrder              Int                @default(0)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  household              Household          @relation(fields: [householdId], references: [id])
+  splits                 TransactionSplit[]
+  plannedExpenses        PlannedExpense[]
+
+  @@unique([householdId, name])
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  householdId       String
+  budgetMonthId     String
+  date              DateTime          @db.Date
+  merchant          String
+  totalAmountCents  Int
+  cashFlowTreatment CashFlowTreatment @default(CASH_DEBIT)
+  plannedStatus     PlannedStatus     @default(UNPLANNED)
+  isReimbursable    Boolean           @default(false)
+  notes             String?
+  receiptId         String?           @unique
+  createdByMemberId String
+  updatedByMemberId String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  household         Household         @relation(fields: [householdId], references: [id])
+  budgetMonth       BudgetMonth       @relation(fields: [budgetMonthId], references: [id])
+  receipt           Receipt?          @relation(fields: [receiptId], references: [id])
+  createdBy         HouseholdMember   @relation("TransactionCreatedBy", fields: [createdByMemberId], references: [id])
+  updatedBy         HouseholdMember?  @relation("TransactionUpdatedBy", fields: [updatedByMemberId], references: [id])
+  splits            TransactionSplit[]
+}
+
+model TransactionSplit {
+  id            String           @id @default(cuid())
+  transactionId String
+  categoryId    String
+  amountCents   Int
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  transaction   Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  category      SpendingCategory @relation(fields: [categoryId], references: [id])
+}
+
+model Receipt {
+  id                String           @id @default(cuid())
+  householdId       String
+  originalFileName  String
+  storedFileName    String
+  mimeType          String
+  sizeBytes         Int
+  storagePath       String
+  uploadedByMemberId String
+  createdAt         DateTime         @default(now())
+  household         Household        @relation(fields: [householdId], references: [id])
+  uploadedBy        HouseholdMember  @relation(fields: [uploadedByMemberId], references: [id])
+  transaction       Transaction?
+}
+
+model PlannedExpense {
+  id                  String           @id @default(cuid())
+  householdId         String
+  budgetMonthId       String
+  date                DateTime         @db.Date
+  description         String
+  categoryId          String
+  expectedAmountCents Int
+  actualAmountCents   Int?
+  isPaid              Boolean          @default(false)
+  createdByMemberId   String
+  updatedByMemberId   String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  household           Household        @relation(fields: [householdId], references: [id])
+  budgetMonth         BudgetMonth      @relation(fields: [budgetMonthId], references: [id])
+  category            SpendingCategory @relation(fields: [categoryId], references: [id])
+  createdBy           HouseholdMember  @relation("PlannedExpenseCreatedBy", fields: [createdByMemberId], references: [id])
+  updatedBy           HouseholdMember? @relation("PlannedExpenseUpdatedBy", fields: [updatedByMemberId], references: [id])
+}
+
+model SavingsFund {
+  id                         String            @id @default(cuid())
+  householdId                String
+  name                       String
+  type                       FundType
+  mode                       FundGoalMode
+  startingBalanceCents       Int               @default(0)
+  currentBalanceCents        Int               @default(0)
+  targetAmountCents          Int?
+  dueDate                    DateTime?         @db.Date
+  plannedContributionCents   Int               @default(0)
+  isActive                   Boolean           @default(true)
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+  household                  Household         @relation(fields: [householdId], references: [id])
+  activities                 SavingsActivity[]
+
+  @@unique([householdId, name])
+}
+
+model SavingsActivity {
+  id                  String              @id @default(cuid())
+  householdId         String
+  fundId              String
+  budgetMonthId       String
+  date                DateTime            @db.Date
+  type                SavingsActivityType
+  plannedAmountCents  Int?
+  actualAmountCents   Int?
+  description         String?
+  createdByMemberId   String
+  updatedByMemberId   String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  household           Household           @relation(fields: [householdId], references: [id])
+  fund                SavingsFund         @relation(fields: [fundId], references: [id])
+  budgetMonth         BudgetMonth         @relation(fields: [budgetMonthId], references: [id])
+  createdBy           HouseholdMember     @relation("SavingsActivityCreatedBy", fields: [createdByMemberId], references: [id])
+  updatedBy           HouseholdMember?    @relation("SavingsActivityUpdatedBy", fields: [updatedByMemberId], references: [id])
+}
+
+model DebtAccount {
+  id                   String         @id @default(cuid())
+  householdId          String
+  name                 String
+  startingBalanceCents Int
+  currentBalanceCents  Int
+  interestRatePercent  Decimal        @db.Decimal(7, 3)
+  minimumPaymentCents  Int            @default(0)
+  dueDay               Int
+  extraPaymentCents    Int            @default(0)
+  isActive             Boolean        @default(true)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  household            Household      @relation(fields: [householdId], references: [id])
+  snapshots            DebtSnapshot[]
+  payments             DebtPayment[]
+
+  @@unique([householdId, name])
+}
+
+model DebtSnapshot {
+  id                  String          @id @default(cuid())
+  householdId         String
+  debtAccountId       String
+  budgetMonthId       String
+  statementBalanceCents Int
+  interestRatePercent Decimal         @db.Decimal(7, 3)
+  minimumPaymentCents Int
+  estimatedInterestCents Int
+  createdByMemberId   String
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  household           Household       @relation(fields: [householdId], references: [id])
+  debtAccount         DebtAccount     @relation(fields: [debtAccountId], references: [id])
+  budgetMonth         BudgetMonth     @relation(fields: [budgetMonthId], references: [id])
+  createdBy           HouseholdMember @relation(fields: [createdByMemberId], references: [id])
+}
+
+model DebtPayment {
+  id                  String           @id @default(cuid())
+  householdId         String
+  debtAccountId       String
+  budgetMonthId       String
+  billInstanceId      String?
+  dueDate             DateTime         @db.Date
+  minimumPaymentCents Int              @default(0)
+  extraPaymentCents   Int              @default(0)
+  actualPaymentCents  Int?
+  createdByMemberId   String
+  updatedByMemberId   String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  household           Household        @relation(fields: [householdId], references: [id])
+  debtAccount         DebtAccount      @relation(fields: [debtAccountId], references: [id])
+  budgetMonth         BudgetMonth      @relation(fields: [budgetMonthId], references: [id])
+  billInstance        BillInstance?    @relation(fields: [billInstanceId], references: [id])
+  createdBy           HouseholdMember  @relation("DebtPaymentCreatedBy", fields: [createdByMemberId], references: [id])
+  updatedBy           HouseholdMember? @relation("DebtPaymentUpdatedBy", fields: [updatedByMemberId], references: [id])
+}
+
+model Note {
+  id                String           @id @default(cuid())
+  householdId       String
+  body              String
+  createdByMemberId String
+  updatedByMemberId String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  deletedAt         DateTime?
+  household         Household        @relation(fields: [householdId], references: [id])
+  createdBy         HouseholdMember  @relation("NoteCreatedBy", fields: [createdByMemberId], references: [id])
+  updatedBy         HouseholdMember? @relation("NoteUpdatedBy", fields: [updatedByMemberId], references: [id])
 }
 
 model AuditEvent {
@@ -102,4 +470,36 @@ model AuditEvent {
   oldValueJson  Json?
   newValueJson  Json?
   createdAt     DateTime @default(now())
+  household      Household @relation(fields: [householdId], references: [id])
+  actorMember    HouseholdMember @relation(fields: [actorMemberId], references: [id])
+}
+
+model Reminder {
+  id           String    @id @default(cuid())
+  householdId  String
+  entityType   String
+  entityId     String
+  remindOnDate DateTime  @db.Date
+  message      String
+  isDismissed  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  household    Household @relation(fields: [householdId], references: [id])
+}
+
+model Transfer {
+  id                String           @id @default(cuid())
+  householdId       String
+  budgetMonthId     String
+  date              DateTime         @db.Date
+  fromAccountId     String?
+  toAccountId       String?
+  amountCents       Int
+  description       String?
+  createdByMemberId String?
+  updatedByMemberId String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  household         Household        @relation(fields: [householdId], references: [id])
+  budgetMonth       BudgetMonth      @relation(fields: [budgetMonthId], references: [id])
 }

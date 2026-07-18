@@ -206,7 +206,7 @@ Expected variables:
 ```text
 DATABASE_URL=
 AUTH_SECRET=
-AUTH_URL=http://localhost:3000
+AUTH_URL=http://localhost:3200
 UPLOAD_DIR=/app/uploads
 MAX_RECEIPT_UPLOAD_MB=10
 HOUSEHOLD_TIMEZONE=
