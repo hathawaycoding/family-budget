@@ -12,3 +12,7 @@ export function projectedDebtTrend(debt: DebtAccount, months = 6) {
     return { month: index + 1, balanceCents: balance };
   });
 }
+
+export function canDeleteDebtAccount(paymentCount: number, snapshotCount: number) {
+  return paymentCount === 0 && snapshotCount === 0;
+}

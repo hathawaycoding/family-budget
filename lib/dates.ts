@@ -32,3 +32,7 @@ export function formatDateLabel(date: string): string {
   const [year, month, day] = date.split("-").map(Number);
   return `${monthNames[month - 1]} ${day}, ${year}`;
 }
+
+export function dateInputValue(value = new Date()): string {
+  return value.toISOString().slice(0, 10);
+}

@@ -19,25 +19,26 @@ export function buildCashFlowRows(args: Args): CashFlowRow[] {
   for (const date of eachDay(args.month.startDate, args.month.endDate)) {
     const events: Omit<CashFlowRow, "balanceCents" | "isNegative">[] = [];
     for (const item of args.income.filter((entry) => entry.date === date)) {
-      events.push({ date, label: `${item.source} paycheck`, type: "Income", amountCents: incomePlanningCents(item.actualAmountCents ?? item.expectedAmountCents) });
+      events.push({ date, label: `${item.source} paycheck`, type: "Income", amountCents: incomePlanningCents(item.actualAmountCents ?? item.expectedAmountCents), sourceType: "IncomeEntry", sourceId: item.id, canEdit: true, canDelete: true });
     }
     for (const item of args.bills.filter((bill) => bill.dueDate === date && !bill.isSkipped)) {
-      events.push({ date, label: item.name, type: "Bill", amountCents: -expensePlanningCents(item.actualAmountCents ?? item.expectedAmountCents) });
+      events.push({ date, label: item.name, type: "Bill", amountCents: -expensePlanningCents(item.actualAmountCents ?? item.expectedAmountCents), sourceType: "BillInstance", sourceId: item.id, canEdit: true, canDelete: true });
     }
     for (const item of args.transactions.filter((tx) => tx.date === date && tx.cashFlowTreatment === "CASH_DEBIT")) {
-      events.push({ date, label: item.merchant, type: "Spending", amountCents: -expensePlanningCents(item.totalAmountCents) });
+      events.push({ date, label: item.merchant, type: "Spending", amountCents: -expensePlanningCents(item.totalAmountCents), sourceType: "Transaction", sourceId: item.id, canEdit: true, canDelete: true });
     }
     for (const item of args.plannedExpenses.filter((expense) => expense.date === date)) {
-      events.push({ date, label: item.description, type: "Planned", amountCents: -expensePlanningCents(item.actualAmountCents ?? item.expectedAmountCents) });
+      events.push({ date, label: item.description, type: "Planned", amountCents: -expensePlanningCents(item.actualAmountCents ?? item.expectedAmountCents), sourceType: "PlannedExpense", sourceId: item.id, canEdit: true, canDelete: true });
     }
     for (const item of args.savingsActivities.filter((activity) => activity.date === date)) {
       const amount = item.actualAmountCents ?? item.plannedAmountCents ?? 0;
-      events.push({ date, label: item.description ?? "Savings activity", type: "Savings", amountCents: item.type === "WITHDRAWAL" ? incomePlanningCents(amount) : -expensePlanningCents(amount) });
+      events.push({ date, label: item.description ?? "Savings activity", type: "Savings", amountCents: item.type === "WITHDRAWAL" ? incomePlanningCents(amount) : -expensePlanningCents(amount), sourceType: "SavingsActivity", sourceId: item.id, canEdit: true, canDelete: true });
     }
     for (const debt of args.debtAccounts) {
       const debtDate = `${args.month.id}-${String(debt.dueDay).padStart(2, "0")}`;
-      if (debtDate === date) {
-        events.push({ date, label: `${debt.name} payment`, type: "Debt", amountCents: -expensePlanningCents(debt.minimumPaymentCents + debt.extraPaymentCents) });
+      const totalPaymentCents = debt.minimumPaymentCents + debt.extraPaymentCents;
+      if (debtDate === date && totalPaymentCents > 0) {
+        events.push({ date, label: `${debt.name} payment`, type: "Debt", amountCents: -expensePlanningCents(totalPaymentCents), sourceType: "DebtAccount", sourceId: debt.id, canEdit: true, canDelete: true });
       }
     }
     if (events.length === 0) {

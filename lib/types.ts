@@ -1,6 +1,7 @@
 export type Actor = "CS" | "TCH";
 export type MonthStatus = "Balanced" | "Needs Assignment" | "Underfunded" | "Cash-Flow Risk" | "Closed" | "Needs Review";
 export type CashFlowType = "Income" | "Bill" | "Spending" | "Savings" | "Debt" | "Transfer" | "Planned";
+export type CashFlowSourceType = "IncomeEntry" | "BillInstance" | "Transaction" | "PlannedExpense" | "SavingsActivity" | "DebtAccount";
 
 export type BudgetMonth = {
   id: string;
@@ -83,6 +84,7 @@ export type SavingsFund = {
   targetAmountCents?: number | null;
   dueDate?: string | null;
   plannedContributionCents: number;
+  isActive: boolean;
 };
 
 export type SavingsActivity = {
@@ -99,6 +101,7 @@ export type SavingsActivity = {
 export type DebtAccount = {
   id: string;
   name: string;
+  startingBalanceCents: number;
   currentBalanceCents: number;
   interestRatePercent: number;
   minimumPaymentCents: number;
@@ -131,4 +134,8 @@ export type CashFlowRow = {
   amountCents: number;
   balanceCents: number;
   isNegative: boolean;
+  sourceType?: CashFlowSourceType;
+  sourceId?: string;
+  canEdit?: boolean;
+  canDelete?: boolean;
 };

@@ -60,9 +60,9 @@ export const plannedExpenses: PlannedExpense[] = [
 ];
 
 export const savingsFunds: SavingsFund[] = [
-  { id: "car-insurance", name: "Car Insurance", type: "Sinking Fund", mode: "Known Due Date", startingBalanceCents: 0, currentBalanceCents: 24500, targetAmountCents: 140000, dueDate: "2027-01-30", plannedContributionCents: 24500 },
-  { id: "emergency", name: "Emergency Fund", type: "Emergency", mode: "Open Ended", startingBalanceCents: 120000, currentBalanceCents: 140000, targetAmountCents: 1000000, plannedContributionCents: 20000 },
-  { id: "christmas", name: "Christmas", type: "Sinking Fund", mode: "Known Due Date", startingBalanceCents: 10000, currentBalanceCents: 25000, targetAmountCents: 80000, dueDate: "2026-12-20", plannedContributionCents: 15000 }
+  { id: "car-insurance", name: "Car Insurance", type: "Sinking Fund", mode: "Known Due Date", startingBalanceCents: 0, currentBalanceCents: 24500, targetAmountCents: 140000, dueDate: "2027-01-30", plannedContributionCents: 24500, isActive: true },
+  { id: "emergency", name: "Emergency Fund", type: "Emergency", mode: "Open Ended", startingBalanceCents: 120000, currentBalanceCents: 140000, targetAmountCents: 1000000, plannedContributionCents: 20000, isActive: true },
+  { id: "christmas", name: "Christmas", type: "Sinking Fund", mode: "Known Due Date", startingBalanceCents: 10000, currentBalanceCents: 25000, targetAmountCents: 80000, dueDate: "2026-12-20", plannedContributionCents: 15000, isActive: true }
 ];
 
 export const savingsActivities: SavingsActivity[] = months.flatMap((month) =>
@@ -70,8 +70,8 @@ export const savingsActivities: SavingsActivity[] = months.flatMap((month) =>
 );
 
 export const debtAccounts: DebtAccount[] = [
-  { id: "card-1", name: "Family Rewards Card", currentBalanceCents: 620000, interestRatePercent: 23.99, minimumPaymentCents: 18500, dueDay: 20, extraPaymentCents: 5000 },
-  { id: "card-2", name: "Home Project Card", currentBalanceCents: 320000, interestRatePercent: 19.99, minimumPaymentCents: 9500, dueDay: 27, extraPaymentCents: 0 }
+  { id: "card-1", name: "Family Rewards Card", startingBalanceCents: 620000, currentBalanceCents: 620000, interestRatePercent: 23.99, minimumPaymentCents: 18500, dueDay: 20, extraPaymentCents: 5000 },
+  { id: "card-2", name: "Home Project Card", startingBalanceCents: 320000, currentBalanceCents: 320000, interestRatePercent: 19.99, minimumPaymentCents: 9500, dueDay: 27, extraPaymentCents: 0 }
 ];
 
 export const notes: Note[] = [
