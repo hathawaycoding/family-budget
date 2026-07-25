@@ -26,6 +26,42 @@ html.light body {
   color: #111827;
 }
 
+html.light input,
+html.light select,
+html.light textarea {
+  border-color: rgb(203 213 225 / 1) !important;
+  background-color: rgb(255 255 255 / 0.9) !important;
+  color: #111827 !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #64748b;
+}
+
+html.light article,
+html.light label {
+  border-color: rgb(226 232 240 / 1);
+}
+
+html.light .text-slate-300,
+html.light .text-slate-400,
+html.light .text-slate-500 {
+  color: #475569 !important;
+}
+
+html.light .border-white\/10,
+html.light .border-white\/15 {
+  border-color: rgb(203 213 225 / 1) !important;
+}
+
+html.light .bg-white\/\[0\.04\],
+html.light .bg-white\/\[0\.07\],
+html.light .bg-white\/10,
+html.light .bg-black\/20 {
+  background-color: rgb(255 255 255 / 0.72) !important;
+}
+
 * {
   box-sizing: border-box;
 }
