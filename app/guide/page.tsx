@@ -10,23 +10,23 @@ const guideGroups = [
       {
         name: "Dashboard",
         href: "/dashboard",
-        does: "Shows two months side by side with income, bills, spending, assigned money, unassigned money, ending cash, and risk days.",
-        useWhen: "Start here when you want to know if the month is balanced, underfunded, or headed for a cash-flow problem.",
-        action: "Open the cash-flow timeline from the dashboard if a month shows risk."
+        does: "Shows two months side by side with income, bills, spending, assigned money, unassigned money, ending cash, risk days, and low-balance warnings when a checking cushion is configured.",
+        useWhen: "Start here when you want to know if the month is balanced, underfunded, headed for a cash-flow problem, or projected to dip below your low-balance threshold.",
+        action: "Open the cash-flow timeline from the dashboard if a month shows negative balance or low-balance risk."
       },
       {
         name: "Setup",
         href: "/setup",
-        does: "Holds the monthly setup checklist and spending category budgets.",
-        useWhen: "Use this before a month starts to confirm paychecks, bills, category budgets, savings, debt payments, and planned expenses.",
-        action: "Check off the setup items and adjust category budgets before entering daily spending."
+        does: "Holds the monthly setup checklist, spending category budgets, and optional household low-balance checking threshold.",
+        useWhen: "Use this before a month starts to confirm paychecks, bills, category budgets, savings, debt payments, planned expenses, and the checking cushion where warnings should begin.",
+        action: "Set or clear the low-balance threshold, then adjust category budgets before entering daily spending."
       },
       {
         name: "Cash Flow",
         href: "/cash-flow",
         does: "Shows dated money movement and the projected checking balance after each activity.",
-        useWhen: "Use this when you need to know which exact day the account may get tight or go negative.",
-        action: "Edit dates or amounts from the activity row when the forecast needs correction."
+        useWhen: "Use this when you need to know which exact day the account may fall below the household threshold or go negative.",
+        action: "Review Low balance and Negative balance warnings separately, then edit dates or amounts from the activity row when the forecast needs correction."
       }
     ]
   },
@@ -78,9 +78,9 @@ const guideGroups = [
       {
         name: "Calendar",
         href: "/calendar",
-        does: "Shows paychecks, bill due dates, planned expenses, savings activity, and debt payment dates on a monthly calendar.",
-        useWhen: "Use this when you want a date-based view instead of a worksheet table.",
-        action: "Scan the month for busy money days before making spending decisions."
+        does: "Shows paychecks, bill due dates, planned expenses, savings activity, debt payment dates, and cash-flow warning days on a monthly calendar.",
+        useWhen: "Use this when you want a date-based view of scheduled money movement and low-balance or negative-balance risk.",
+        action: "Scan the month for busy money days and warning labels before making spending decisions."
       },
       {
         name: "Reports",

@@ -3,8 +3,8 @@ import { Card } from "@/components/ui/card";
 import { SimpleTable } from "@/components/tables/simple-table";
 import { getBudgetData } from "@/lib/services/budget-data-service";
 import { activeCategories } from "@/lib/categories";
-import { formatWholeMoney } from "@/lib/money";
-import { createSpendingCategoryAction, deleteSpendingCategoryAction, disableSpendingCategoryAction, renameSpendingCategoryAction, updateCategoryBudgetAction } from "@/app/actions";
+import { formatMoney, formatWholeMoney } from "@/lib/money";
+import { createSpendingCategoryAction, deleteSpendingCategoryAction, disableSpendingCategoryAction, renameSpendingCategoryAction, updateCategoryBudgetAction, updateLowBalanceThresholdAction } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +15,9 @@ const smallButtonClass = "rounded-lg bg-ledger-blue px-3 py-1 font-bold text-led
 const dangerButtonClass = "rounded-lg border border-ledger-rose/50 px-3 py-1 text-red-100";
 
 export default async function SetupPage() {
-  const { categories } = await getBudgetData();
+  const { categories, household } = await getBudgetData();
   const visibleCategories = activeCategories(categories);
+  const threshold = household.lowBalanceThresholdCents;
   return (
     <AppShell>
       <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
@@ -24,6 +25,17 @@ export default async function SetupPage() {
           <h1 className="font-display text-5xl">Setup</h1>
           <div className="mt-5 grid gap-3">{checklist.map((item, index) => <label key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4"><input type="checkbox" defaultChecked={index < 4} /> <span>{item}</span></label>)}</div>
           <p className="mt-3 text-sm text-slate-400">Closed is a status marker; months remain editable.</p>
+
+          <div className="mt-5 rounded-2xl border border-ledger-amber/30 bg-ledger-amber/10 p-4">
+            <h2 className="font-display text-3xl">Low balance warning</h2>
+            <p className="mt-2 text-sm text-slate-300">What checking balance feels too low for your household?</p>
+            <p className="mt-1 text-sm text-slate-400">We will warn you when your projected checking balance drops below this amount. This does not include savings funds.</p>
+            <form action={updateLowBalanceThresholdAction} className="mt-4 flex flex-wrap gap-2">
+              <input name="lowBalanceThreshold" className={fieldClass} placeholder="No warning threshold" defaultValue={threshold == null ? "" : (threshold / 100).toFixed(2)} />
+              <button className="rounded-xl bg-ledger-amber px-4 py-3 font-bold text-ledger-ink">Save threshold</button>
+            </form>
+            <p className="mt-3 text-sm text-slate-400">Current: {threshold == null ? "Inactive" : formatMoney(threshold)}. Leave the field blank and save to turn low-balance warnings off.</p>
+          </div>
         </Card>
 
         <Card>

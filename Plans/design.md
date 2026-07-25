@@ -440,6 +440,7 @@ Recommended model intent. Exact Prisma syntax can be refined during implementati
 ```text
 id
 name
+lowBalanceThresholdCents nullable
 createdAt
 updatedAt
 ```
@@ -953,6 +954,10 @@ Do not update credit card balance.
 The timeline should include every calendar day.
 
 Flag days where projected balance is below $0.
+
+If `Household.lowBalanceThresholdCents` is set, flag days where projected checking balance is below that threshold but not negative.
+
+Keep negative balance warnings separate and more severe than low-balance warnings.
 
 ## 33. Zero-Based Budget Engine
 

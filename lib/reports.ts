@@ -9,7 +9,7 @@ export function getMonthBundle(monthId: string) {
   const monthTransactions = transactions.filter((item) => item.monthId === month.id);
   const monthPlanned = plannedExpenses.filter((item) => item.monthId === month.id);
   const monthSavings = savingsActivities.filter((item) => item.monthId === month.id);
-  const cashFlowRows = buildCashFlowRows({ month, income: monthIncome, bills: monthBills, transactions: monthTransactions, plannedExpenses: monthPlanned, savingsActivities: monthSavings, debtAccounts });
+  const cashFlowRows = buildCashFlowRows({ month, income: monthIncome, bills: monthBills, transactions: monthTransactions, plannedExpenses: monthPlanned, savingsActivities: monthSavings, debtAccounts, lowBalanceThresholdCents: null });
   const summary = getZeroBasedSummary({ month, income: monthIncome, bills: monthBills, categories, plannedExpenses: monthPlanned, savingsActivities: monthSavings, debtAccounts, hasCashFlowRisk: cashFlowRows.some((row) => row.isNegative) });
   return { month, income: monthIncome, bills: monthBills, transactions: monthTransactions, plannedExpenses: monthPlanned, savingsActivities: monthSavings, cashFlowRows, summary };
 }
