@@ -4,7 +4,7 @@ import { logoutAction } from "@/app/login/actions";
 import { ThemeToggle } from "./theme-toggle";
 
 const nav = [
-  ["Dashboard", "/dashboard"], ["Cash Flow", "/cash-flow"], ["Calendar", "/calendar"], ["Income", "/income"], ["Bills", "/bills"], ["Spending", "/spending"], ["Savings", "/savings"], ["Debt", "/debt"], ["Reports", "/reports"], ["Setup", "/setup"], ["Notes", "/notes"], ["Audit History", "/audit-history"]
+  ["Dashboard", "/dashboard"], ["Guide", "/guide"], ["Cash Flow", "/cash-flow"], ["Calendar", "/calendar"], ["Income", "/income"], ["Bills", "/bills"], ["Spending", "/spending"], ["Savings", "/savings"], ["Debt", "/debt"], ["Reports", "/reports"], ["Setup", "/setup"], ["Notes", "/notes"], ["Audit History", "/audit-history"]
 ];
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
