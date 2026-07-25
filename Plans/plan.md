@@ -212,6 +212,7 @@ Dashboard should include:
 - Cash-flow timeline shortcut
 - Category alerts when spending reaches 80% of available budget
 - Negative cash-flow warning if projected balance goes below $0
+- Low-balance warning if the household has configured a checking cushion threshold and projected checking falls below it
 
 Savings and debt should not appear as detailed dashboard widgets. They should have their own tabs.
 
@@ -259,7 +260,7 @@ Cash flow should include:
 
 The app should warn when projected cash flow goes negative.
 
-No minimum checking cushion is required.
+A minimum checking cushion is optional. The app should not assume a default low-balance threshold. If the household enters a threshold in Setup, low-balance warnings should appear when projected checking cash flow falls below that threshold. If no threshold is entered, low-balance warnings should remain inactive, but negative balance warnings should still appear.
 
 Cash-flow rows should be color-coded.
 
@@ -870,6 +871,7 @@ Example checklist:
 - Confirm planned one-time expenses.
 - Check zero-based budget equals $0.
 - Check projected cash flow for negative days.
+- Optional: set or review the household low-balance checking threshold.
 
 ## 34. Notes And Communication
 
@@ -1070,6 +1072,7 @@ Required validations:
 - Paid or skipped bills should not trigger reminders.
 - Category 80% usage warning should appear when threshold is reached.
 - Negative projected cash flow warning should appear when balance drops below $0.
+- Low-balance warning should appear only when a household threshold is configured and projected checking falls below it.
 - Zero-based budget status should be recalculated after relevant changes.
 
 ## 42. Testing Checklist
@@ -1088,6 +1091,8 @@ The builder should verify:
 - Starting balance for July is $5,414.69.
 - Cash-flow timeline shows every calendar day.
 - Cash-flow warning appears when projected balance is negative.
+- Low-balance warning remains inactive without a configured threshold.
+- Low-balance warning appears when projected checking falls below the configured threshold.
 - Bills appear in cash flow on due date.
 - Paid date does not change cash-flow date unless future requirements change.
 - Skipped bills are excluded from cash flow and visible in skipped list.

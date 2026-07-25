@@ -12,7 +12,7 @@ import { bills, categories, debtAccounts, income, months, plannedExpenses, savin
 import { activeSavingsFunds, canDeleteSavingsFund, canWithdraw, getSavingsActivityAmount, getSavingsActivityKind, getSavingsBalance, getSavingsFundStatus } from "@/lib/calculations/savings";
 import { billIdSchema, updateBillInstanceSchema, updateBillSchema } from "@/lib/validation/bills";
 import { incomeEntryIdSchema, updateIncomeActualSchema } from "@/lib/validation/income";
-import { categoryIdSchema, createCategorySchema, renameCategorySchema } from "@/lib/validation/setup";
+import { categoryIdSchema, createCategorySchema, lowBalanceThresholdSchema, renameCategorySchema } from "@/lib/validation/setup";
 import { createSavingsFundSchema, savingsFundIdSchema, updateSavingsFundSchema } from "@/lib/validation/savings";
 import { createDebtAccountSchema, debtAccountIdSchema, debtPaymentSchema, updateDebtAccountSchema } from "@/lib/validation/debt";
 import { noteSchema } from "@/lib/validation/notes";
@@ -149,6 +149,35 @@ describe("budget calculations", () => {
     expect(rows[0].balanceCents).toBeLessThan(0);
   });
 
+  it("keeps low-balance warnings inactive without a household threshold", () => {
+    const month: BudgetMonth = { ...months[0], startingBalanceCents: 40000 };
+    const rows = buildCashFlowRows({ month, income: [], bills: [], transactions: [], plannedExpenses: [], savingsActivities: [], debtAccounts: [], lowBalanceThresholdCents: null });
+
+    expect(rows[0].isLowBalance).toBe(false);
+    expect(getCashFlowSummary(rows, null).nextLowBalanceDate).toBeNull();
+  });
+
+  it("flags projected checking balances below the household threshold", () => {
+    const month: BudgetMonth = { ...months[0], startingBalanceCents: 60000 };
+    const bill: BillInstance = { ...bills[0], id: "low-balance-bill", monthId: month.id, dueDate: "2026-07-02", expectedAmountCents: 20000, actualAmountCents: null, isSkipped: false };
+    const rows = buildCashFlowRows({ month, income: [], bills: [bill], transactions: [], plannedExpenses: [], savingsActivities: [], debtAccounts: [], lowBalanceThresholdCents: 50000 });
+    const summary = getCashFlowSummary(rows, 50000);
+
+    expect(rows.find((row) => row.sourceId === bill.id)?.isLowBalance).toBe(true);
+    expect(summary.nextLowBalanceDate).toBe("2026-07-02");
+    expect(summary.lowBalanceThresholdCents).toBe(50000);
+    expect(summary.majorLowBalanceCauses).toEqual(["Mortgage"]);
+  });
+
+  it("keeps negative balances more severe than low-balance warnings", () => {
+    const month: BudgetMonth = { ...months[0], startingBalanceCents: 10000 };
+    const largeBill: BillInstance = { ...bills[0], id: "negative-not-low", monthId: month.id, dueDate: "2026-07-01", expectedAmountCents: 20000, actualAmountCents: null, isSkipped: false };
+    const rows = buildCashFlowRows({ month, income: [], bills: [largeBill], transactions: [], plannedExpenses: [], savingsActivities: [], debtAccounts: [], lowBalanceThresholdCents: 50000 });
+
+    expect(rows[0].isNegative).toBe(true);
+    expect(rows[0].isLowBalance).toBe(false);
+  });
+
   it("summarizes cash-flow rows for review cards", () => {
     const rows: CashFlowRow[] = [
       { date: "2026-07-01", label: "Rent", type: "Bill", amountCents: -10000, balanceCents: 90000, isNegative: false, sourceType: "BillInstance", sourceId: "bill-1" },
@@ -156,21 +185,22 @@ describe("budget calculations", () => {
       { date: "2026-07-03", label: "Paycheck", type: "Income", amountCents: 50000, balanceCents: 40000, isNegative: false, sourceType: "IncomeEntry", sourceId: "income-1" }
     ];
 
-    expect(getCashFlowSummary(rows)).toEqual({ startingBalanceCents: 100000, endingBalanceCents: 40000, lowestBalanceCents: -10000, negativeDayCount: 1, nextRiskDate: "2026-07-02" });
+    expect(getCashFlowSummary(rows)).toEqual({ startingBalanceCents: 100000, endingBalanceCents: 40000, lowestBalanceCents: -10000, negativeDayCount: 1, nextRiskDate: "2026-07-02", lowBalanceThresholdCents: null, lowBalanceDayCount: 0, nextLowBalanceDate: null, majorLowBalanceCauses: [] });
   });
 
   it("returns safe empty cash-flow summary values", () => {
-    expect(getCashFlowSummary([])).toEqual({ startingBalanceCents: 0, endingBalanceCents: 0, lowestBalanceCents: 0, negativeDayCount: 0, nextRiskDate: null });
+    expect(getCashFlowSummary([])).toEqual({ startingBalanceCents: 0, endingBalanceCents: 0, lowestBalanceCents: 0, negativeDayCount: 0, nextRiskDate: null, lowBalanceThresholdCents: null, lowBalanceDayCount: 0, nextLowBalanceDate: null, majorLowBalanceCauses: [] });
   });
 
   it("keeps activity and risk rows in activity-only cash-flow view", () => {
     const rows: CashFlowRow[] = [
       { date: "2026-07-01", label: "No activity", type: "Transfer", amountCents: 0, balanceCents: 1000, isNegative: false },
       { date: "2026-07-02", label: "Paycheck", type: "Income", amountCents: 5000, balanceCents: 6000, isNegative: false, sourceType: "IncomeEntry", sourceId: "income-1" },
-      { date: "2026-07-03", label: "No activity", type: "Transfer", amountCents: 0, balanceCents: -500, isNegative: true }
+      { date: "2026-07-03", label: "No activity", type: "Transfer", amountCents: 0, balanceCents: -500, isNegative: true },
+      { date: "2026-07-04", label: "No activity", type: "Transfer", amountCents: 0, balanceCents: 400, isNegative: false, isLowBalance: true }
     ];
 
-    expect(cashFlowActivityRows(rows).map((row) => row.date)).toEqual(["2026-07-02", "2026-07-03"]);
+    expect(cashFlowActivityRows(rows).map((row) => row.date)).toEqual(["2026-07-02", "2026-07-03", "2026-07-04"]);
   });
 
   it("excludes plain calculated no-activity rows from activity-only cash-flow view", () => {
@@ -281,6 +311,17 @@ describe("budget calculations", () => {
     expect(() => parseFormOrThrow(updateBillInstanceSchema, { id: "bill-1", dueDate: "07/18/2026", actualAmountCents: "72.88" })).toThrow("Date must use YYYY-MM-DD.");
     expect(() => parseFormOrThrow(createCategorySchema, { name: "Pets", baseMonthlyBudgetCents: "-1.00" })).toThrow("Amount cannot be negative.");
     expect(() => parseFormOrThrow(createSavingsFundSchema, { name: "Car", type: "SINKING", mode: "OPEN_ENDED", startingBalanceCents: "", targetAmountCents: "", plannedContributionCents: "", dueDate: "" })).not.toThrow();
+  });
+
+  it("accepts blank and non-negative low-balance thresholds", () => {
+    expect(lowBalanceThresholdSchema.parse({ lowBalanceThresholdCents: "" })).toEqual({ lowBalanceThresholdCents: null });
+    expect(lowBalanceThresholdSchema.parse({ lowBalanceThresholdCents: "500" })).toEqual({ lowBalanceThresholdCents: 50000 });
+    expect(lowBalanceThresholdSchema.parse({ lowBalanceThresholdCents: "$1,250.25" })).toEqual({ lowBalanceThresholdCents: 125025 });
+  });
+
+  it("rejects invalid or negative low-balance thresholds", () => {
+    expect(() => lowBalanceThresholdSchema.parse({ lowBalanceThresholdCents: "not money" })).toThrow();
+    expect(() => lowBalanceThresholdSchema.parse({ lowBalanceThresholdCents: "-1" })).toThrow();
   });
 
   it("shows goal met without changing the monthly plan", () => {

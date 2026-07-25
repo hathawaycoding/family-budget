@@ -9,3 +9,6 @@ const optionalCategoryBudget = z.preprocess((value) => value === "" ? "0" : valu
 export const createCategorySchema = z.object({ name: categoryName, baseMonthlyBudgetCents: optionalCategoryBudget });
 export const renameCategorySchema = z.object({ categoryId: z.string().min(1), name: categoryName });
 export const categoryIdSchema = z.object({ categoryId: z.string().min(1) });
+export const lowBalanceThresholdSchema = z.object({
+  lowBalanceThresholdCents: z.preprocess((value) => value === "" ? null : value, nonNegativeCents.nullable())
+});

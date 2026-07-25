@@ -62,7 +62,7 @@ export async function getMonthBundle(monthId: string) {
   const monthTransactions = data.transactions.filter((item) => item.monthId === month.id);
   const monthPlanned = data.plannedExpenses.filter((item) => item.monthId === month.id);
   const monthSavings = data.savingsActivities.filter((item) => item.monthId === month.id);
-  const cashFlowRows = buildCashFlowRows({ month, income: monthIncome, bills: monthBills, transactions: monthTransactions, plannedExpenses: monthPlanned, savingsActivities: monthSavings, debtAccounts: data.debtAccounts });
+  const cashFlowRows = buildCashFlowRows({ month, income: monthIncome, bills: monthBills, transactions: monthTransactions, plannedExpenses: monthPlanned, savingsActivities: monthSavings, debtAccounts: data.debtAccounts, lowBalanceThresholdCents: data.household.lowBalanceThresholdCents });
   const summary = getZeroBasedSummary({ month, income: monthIncome, bills: monthBills, categories: data.categories, plannedExpenses: monthPlanned, savingsActivities: monthSavings, debtAccounts: data.debtAccounts, hasCashFlowRisk: cashFlowRows.some((row) => row.isNegative) });
   return { ...data, month, income: monthIncome, bills: monthBills, transactions: monthTransactions, plannedExpenses: monthPlanned, savingsActivities: monthSavings, cashFlowRows, summary };
 }

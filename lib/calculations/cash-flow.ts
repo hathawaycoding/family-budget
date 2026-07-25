@@ -10,7 +10,12 @@ type Args = {
   plannedExpenses: PlannedExpense[];
   savingsActivities: SavingsActivity[];
   debtAccounts: DebtAccount[];
+  lowBalanceThresholdCents?: number | null;
 };
+
+function isLowBalance(balanceCents: number, thresholdCents?: number | null) {
+  return thresholdCents != null && balanceCents >= 0 && balanceCents < thresholdCents;
+}
 
 export function buildCashFlowRows(args: Args): CashFlowRow[] {
   const rows: CashFlowRow[] = [];
@@ -42,11 +47,11 @@ export function buildCashFlowRows(args: Args): CashFlowRow[] {
       }
     }
     if (events.length === 0) {
-      rows.push({ date, label: "No activity", type: "Transfer", amountCents: 0, balanceCents: balance, isNegative: balance < 0 });
+      rows.push({ date, label: "No activity", type: "Transfer", amountCents: 0, balanceCents: balance, isNegative: balance < 0, isLowBalance: isLowBalance(balance, args.lowBalanceThresholdCents) });
     } else {
       for (const event of events) {
         balance += event.amountCents;
-        rows.push({ ...event, balanceCents: balance, isNegative: balance < 0 });
+        rows.push({ ...event, balanceCents: balance, isNegative: balance < 0, isLowBalance: isLowBalance(balance, args.lowBalanceThresholdCents) });
       }
     }
   }

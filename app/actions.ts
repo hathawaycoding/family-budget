@@ -9,7 +9,7 @@ import { incomeEntryIdSchema, updateIncomeActualSchema } from "@/lib/validation/
 import { createSavingsFundSchema, savingsActivitySchema, savingsFundIdSchema, updateSavingsFundSchema } from "@/lib/validation/savings";
 import { createDebtAccountSchema, debtAccountIdSchema, debtPaymentSchema, updateDebtAccountSchema } from "@/lib/validation/debt";
 import { noteSchema } from "@/lib/validation/notes";
-import { categoryBudgetSchema, categoryIdSchema, createCategorySchema, renameCategorySchema } from "@/lib/validation/setup";
+import { categoryBudgetSchema, categoryIdSchema, createCategorySchema, lowBalanceThresholdSchema, renameCategorySchema } from "@/lib/validation/setup";
 import { parseFormOrThrow } from "@/lib/validation/form";
 import { canDeleteCategory } from "@/lib/categories";
 import { canDeleteSavingsFund } from "@/lib/calculations/savings";
@@ -515,6 +515,15 @@ export async function createSpendingCategoryAction(formData: FormData) {
   const maxSort = await prisma.spendingCategory.aggregate({ where: { householdId: household.id }, _max: { sortOrder: true } });
   const category = await prisma.spendingCategory.create({ data: { householdId: household.id, name: parsed.name, baseMonthlyBudgetCents: parsed.baseMonthlyBudgetCents, sortOrder: (maxSort._max.sortOrder ?? 0) + 1 } });
   await audit(household.id, member.id, "SpendingCategory", category.id, "created", null, null, { name: category.name, baseMonthlyBudgetCents: category.baseMonthlyBudgetCents });
+  revalidateBudgetPages();
+}
+
+export async function updateLowBalanceThresholdAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(lowBalanceThresholdSchema, { lowBalanceThresholdCents: formString(formData, "lowBalanceThreshold") });
+  const existing = await prisma.household.findFirstOrThrow({ where: { id: household.id } });
+  await prisma.household.update({ where: { id: household.id }, data: { lowBalanceThresholdCents: parsed.lowBalanceThresholdCents } });
+  await audit(household.id, member.id, "Household", household.id, "updated", "lowBalanceThresholdCents", { lowBalanceThresholdCents: existing.lowBalanceThresholdCents }, { lowBalanceThresholdCents: parsed.lowBalanceThresholdCents });
   revalidateBudgetPages();
 }
 

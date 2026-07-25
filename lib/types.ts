@@ -134,6 +134,7 @@ export type CashFlowRow = {
   amountCents: number;
   balanceCents: number;
   isNegative: boolean;
+  isLowBalance?: boolean;
   sourceType?: CashFlowSourceType;
   sourceId?: string;
   canEdit?: boolean;

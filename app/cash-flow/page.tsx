@@ -87,13 +87,14 @@ function AmountCell({ cents }: { cents: number }) {
 }
 
 function WarningCell({ row }: { row: CashFlowRow }) {
-  if (!row.isNegative) return "";
-  return <span className="rounded-full border border-ledger-rose/50 bg-ledger-rose/10 px-2 py-1 text-xs font-bold text-red-100">Negative balance</span>;
+  if (row.isNegative) return <span className="rounded-full border border-ledger-rose/50 bg-ledger-rose/10 px-2 py-1 text-xs font-bold text-red-100">Negative balance</span>;
+  if (row.isLowBalance) return <span className="rounded-full border border-ledger-amber/50 bg-ledger-amber/10 px-2 py-1 text-xs font-bold text-yellow-100">Low balance</span>;
+  return "";
 }
 
 export default async function CashFlowPage() {
-  const { month, cashFlowRows, income, bills, transactions, plannedExpenses, savingsActivities, debtAccounts } = await getMonthBundle("2026-07");
-  const summary = getCashFlowSummary(cashFlowRows);
+  const { household, month, cashFlowRows, income, bills, transactions, plannedExpenses, savingsActivities, debtAccounts } = await getMonthBundle("2026-07");
+  const summary = getCashFlowSummary(cashFlowRows, household.lowBalanceThresholdCents);
   const visibleRows = cashFlowActivityRows(cashFlowRows);
   const incomeAmounts = new Map(income.map((item) => [item.id, item.actualAmountCents ?? item.expectedAmountCents]));
   const incomeHasActual = new Map(income.map((item) => [item.id, item.actualAmountCents != null]));
@@ -125,13 +126,16 @@ export default async function CashFlowPage() {
           <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-slate-400">Activity only</span>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <Stat label="Starting" value={formatWholeMoney(summary.startingBalanceCents)} />
           <Stat label="Ending" value={formatWholeMoney(summary.endingBalanceCents)} tone={summary.endingBalanceCents < 0 ? "bad" : "good"} />
           <Stat label="Lowest" value={formatWholeMoney(summary.lowestBalanceCents)} tone={summary.lowestBalanceCents < 0 ? "bad" : "warn"} />
           <Stat label="Negative days" value={String(summary.negativeDayCount)} tone={summary.negativeDayCount > 0 ? "bad" : "good"} />
           <Stat label="Next risk" value={summary.nextRiskDate ? formatDateLabel(summary.nextRiskDate) : "None"} tone={summary.nextRiskDate ? "bad" : "good"} />
+          <Stat label="Low balance" value={summary.nextLowBalanceDate ? formatDateLabel(summary.nextLowBalanceDate) : summary.lowBalanceThresholdCents == null ? "Inactive" : "None"} tone={summary.nextLowBalanceDate ? "warn" : "good"} />
         </div>
+
+        {summary.nextLowBalanceDate ? <p className="mt-5 rounded-2xl border border-ledger-amber/40 bg-ledger-amber/15 p-4 text-sm text-yellow-100">Projected checking falls below {formatWholeMoney(summary.lowBalanceThresholdCents ?? 0)} on {formatDateLabel(summary.nextLowBalanceDate)}. Main causes: {summary.majorLowBalanceCauses.join(", ") || "upcoming outflows"}.</p> : null}
 
         <div className="mt-5 max-h-[38rem] overflow-auto rounded-2xl border border-white/10">
           <SimpleTable
