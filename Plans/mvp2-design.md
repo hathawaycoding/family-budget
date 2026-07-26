@@ -39,6 +39,7 @@ MVP2 includes:
 - Add audit events for every meaningful create/update/delete/skip/paid/withdrawal/payment action.
 - Make Setup editable for core defaults.
 - Make Spending transactions fully editable.
+- Add Shopping Guardrail checks, spouse approval requests, warning confirmations, and conversion to transactions.
 - Make Bills editable enough for monthly operation.
 - Make Income actuals editable.
 - Make Savings funds and activities editable.
@@ -115,6 +116,7 @@ BillInstance
 SpendingCategory
 Transaction
 TransactionSplit
+ShoppingCheck
 Receipt
 PlannedExpense
 SavingsFund
@@ -292,6 +294,52 @@ Audit:
 - Update transaction: field-level or summary update event.
 - Delete transaction: deleted event.
 - Receipt attach: updated event.
+
+## 12.1 Shopping Guardrail MVP2
+
+Shopping Guardrail should be implemented as part of the Spending workflow.
+
+Required capabilities:
+
+- Create a pre-purchase shopping check.
+- Use the same guardrail preview during transaction quick-add.
+- Enter date, merchant, category, amount, cash/debit or credit-card treatment, and optional request note.
+- Show category budget impact for all checks.
+- Show checking cash-flow impact only for cash/debit checks.
+- Ask spouse for in-app approval.
+- Allow the other spouse to approve, request waiting, or comment.
+- Convert an approved or confirmed shopping check to a transaction.
+- Require explicit confirmation before saving or converting when warnings exist, approval is pending, wait was requested, or the request expired.
+- Expire pending or draft requests after the purchase date passes.
+- Allow manual cancellation.
+- Show pending requests on the Spending page and dashboard where practical.
+- Explain the workflow in the in-app Guide page.
+
+Rules:
+
+- Unconverted shopping checks do not affect official spending totals, category actuals, cash flow, or debt balances.
+- Credit-card shopping checks trigger category warnings only.
+- Cash/debit shopping checks trigger category and cash-flow warnings.
+- Expired and cancelled checks should not convert to transactions without explicit confirmation or reopening.
+
+Validation:
+
+- Date required.
+- Merchant required.
+- Amount must be positive.
+- Category required.
+- Cash-flow treatment required.
+- Conversion with warnings requires confirmation.
+
+Audit:
+
+- Shopping check created.
+- Approval requested.
+- Approval response saved.
+- Warning override confirmed.
+- Converted to transaction.
+- Cancelled.
+- Expired if persisted.
 
 ## 13. Bills MVP2
 
@@ -654,6 +702,7 @@ Required validation modules:
 - `lib/validation/income.ts`
 - `lib/validation/bills.ts`
 - `lib/validation/spending.ts`
+- `lib/validation/shopping-guardrail.ts` if not kept inside spending validation
 - `lib/validation/savings.ts`
 - `lib/validation/debt.ts`
 - `lib/validation/notes.ts`
@@ -693,6 +742,10 @@ Unit tests:
 - Split transaction validation.
 - Zero-based status.
 - Category 80% warning.
+- Shopping Guardrail category warning.
+- Shopping Guardrail cash/debit cash-flow warning.
+- Shopping Guardrail credit-card cash-flow exclusion.
+- Shopping approval expiration after purchase date.
 - Savings contribution cash-flow effect.
 - Savings withdrawal cash-flow effect.
 - Savings withdrawal over balance rejection.
@@ -705,6 +758,10 @@ Unit tests:
 Integration tests with test database or mocked Prisma:
 
 - Create transaction.
+- Create shopping check.
+- Respond to shopping approval request.
+- Convert shopping check to transaction.
+- Require warning confirmation before guarded conversion.
 - Reject invalid transaction.
 - Create split transaction.
 - Reject split mismatch.
@@ -800,6 +857,8 @@ Do not seed real bank names, account numbers, addresses, or personal names.
 ### Phase 3: Spending CRUD
 
 - Add transaction actions.
+- Add Shopping Guardrail actions and approval workflow.
+- Add Shopping Guardrail preview calculations.
 - Add split validation.
 - Add receipt metadata persistence.
 - Add audit events.
@@ -862,6 +921,8 @@ MVP2 is complete when:
 - Dashboard reads from PostgreSQL.
 - Cash flow reads from PostgreSQL and shows every day.
 - Spending transactions can be added, edited, deleted, and audited.
+- Shopping Guardrail checks can be created, approved, wait-requested, cancelled, expired, and converted to transactions.
+- Shopping Guardrail warning overrides require confirmation and are audited.
 - Split transactions validate correctly.
 - Credit-card spending does not reduce checking cash flow.
 - Bills can be edited, marked paid, and skipped.

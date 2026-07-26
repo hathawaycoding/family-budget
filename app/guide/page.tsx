@@ -51,9 +51,16 @@ const guideGroups = [
       {
         name: "Spending",
         href: "/spending",
-        does: "Adds household transactions and shows how spending affects category budgets.",
-        useWhen: "Use this for groceries, restaurants, fuel, household supplies, and other day-to-day purchases.",
-        action: "Add transactions quickly and choose cash/debit or credit card treatment correctly."
+        does: "Adds household transactions, shows how spending affects category budgets, and runs Shopping Guardrail warnings during quick-add.",
+        useWhen: "Use this for groceries, restaurants, fuel, household supplies, and other day-to-day purchases, especially when you need to confirm whether a purchase still fits the plan.",
+        action: "Add transactions quickly, choose cash/debit or credit card treatment correctly, and confirm any guardrail warnings before saving."
+      },
+      {
+        name: "Shopping Guardrail",
+        href: "/spending",
+        does: "Checks a planned or actual purchase before it is saved. It shows category impact for every purchase, cash-flow risk for cash/debit purchases, and spouse approval status when CS or TCH asks before buying.",
+        useWhen: "Use this before shopping, while entering a quick-add transaction, or when one spouse wants approval from the other before making a purchase.",
+        action: "Enter merchant, category, amount, date, and cash-flow treatment. If warnings appear, confirm before saving, ask spouse, convert to a transaction, or cancel. Pending requests expire after the purchase date passes."
       },
       {
         name: "Future Expenses",

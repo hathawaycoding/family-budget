@@ -6,6 +6,8 @@ export type FutureExpensePriority = "LOW" | "MEDIUM" | "HIGH" | "MUST_PAY";
 export type FutureExpenseType = "ONE_TIME" | "RECURRING";
 export type FutureExpenseStatus = "DRAFT" | "ACTIVE" | "CONVERTED_TO_PLANNED_EXPENSE" | "CONVERTED_TO_SINKING_FUND" | "COMPLETED" | "CANCELLED";
 export type FutureExpenseSetAsideMode = "EQUAL_MONTHLY" | "CUSTOM";
+export type ShoppingCheckStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "WAIT_REQUESTED" | "CONVERTED_TO_TRANSACTION" | "CANCELLED" | "EXPIRED";
+export type ShoppingGuardrailWarning = "Looks okay" | "Near category limit" | "Over category" | "Low-balance risk" | "Negative cash-flow risk" | "Approval pending" | "Wait requested" | "Expired";
 
 export type BudgetMonth = {
   id: string;
@@ -77,6 +79,24 @@ export type PlannedExpense = {
   actualAmountCents?: number | null;
   isPaid: boolean;
   sourceFutureExpenseId?: string | null;
+};
+
+export type ShoppingCheck = {
+  id: string;
+  monthId: string;
+  date: string;
+  merchant: string;
+  categoryId: string;
+  amountCents: number;
+  cashFlowTreatment: "CASH_DEBIT" | "CREDIT_CARD";
+  status: ShoppingCheckStatus;
+  requestedBy: Actor;
+  reviewedBy?: Actor | null;
+  reviewedAt?: string | null;
+  requestNote?: string | null;
+  reviewResponseNote?: string | null;
+  convertedTransactionId?: string | null;
+  createdAt: string;
 };
 
 export type FutureExpenseContribution = {

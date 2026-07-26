@@ -547,6 +547,120 @@ The spending screen should include a quick-add form.
 
 The spending screen should show remaining budget by category.
 
+## 20.1 Shopping Guardrail
+
+The app should include a Shopping Guardrail for checking purchases before or while they are entered.
+
+The Shopping Guardrail should work in two places:
+
+- Pre-purchase check before shopping or buying.
+- Transaction quick-add guardrail while saving an actual spending transaction.
+
+Shopping Guardrail fields:
+
+- Date
+- Merchant
+- Category
+- Amount
+- Cash-flow treatment: cash/debit or credit card
+- Optional request note
+
+The app should preview the purchase impact before saving or converting it to a transaction.
+
+Preview rules:
+
+- Every Shopping Guardrail check should show category budget impact.
+- Cash/debit checks should also preview checking cash-flow impact.
+- Credit-card checks should show category warnings only and should not reduce checking cash-flow preview.
+- Credit-card checks should not update credit card debt balances.
+- Low-balance warnings should appear only when a household low-balance threshold is configured.
+- Negative cash-flow warnings should appear even when no low-balance threshold is configured.
+
+Shopping Guardrail statuses should support at least:
+
+- Draft
+- Pending approval
+- Approved
+- Wait requested
+- Converted to transaction
+- Cancelled
+- Expired
+
+Shopping Guardrail warning labels should support at least:
+
+- Looks okay
+- Near category limit
+- Over category
+- Low-balance risk
+- Negative cash-flow risk
+- Approval pending
+- Wait requested
+- Expired
+
+Warnings should require explicit confirmation before the user saves or converts the purchase.
+
+Confirmation should be required when:
+
+- The purchase reaches or exceeds the category 80% warning threshold.
+- The purchase exceeds the available category budget.
+- The purchase creates a low-balance risk.
+- The purchase creates a negative cash-flow risk.
+- The purchase is saved while spouse approval is pending.
+- The purchase is saved after the spouse requested waiting.
+- The purchase is saved after the request expired.
+
+The confirmation should clearly explain the reason, such as:
+
+```text
+This purchase will put Groceries $42 over budget and drop checking to $318 on July 18.
+
+Continue anyway?
+```
+
+Shopping Guardrail actions should include:
+
+- Save as shopping check
+- Ask spouse
+- Approve
+- Request wait
+- Add comment
+- Convert to transaction
+- Continue and save after warning confirmation
+- Cancel
+
+Spouse approval should be in-app only.
+
+Approval rules:
+
+- Either `CS` or `TCH` may create a shopping approval request.
+- The other spouse may approve, request waiting, or add a comment.
+- Approval should not technically prevent saving the final transaction.
+- Saving without approval, after a wait request, after expiration, or against a warning requires explicit confirmation.
+- Approval requests should expire automatically after the purchase date passes.
+- The user may manually cancel a shopping approval request.
+- Expired and cancelled requests should not convert to transactions unless the user explicitly confirms and reopens or saves against the warning.
+
+Shopping Guardrail should appear in:
+
+- Spending page
+- Mobile quick-add transaction flow
+- Dashboard pending approval summary where practical
+- Guide page
+- Audit history
+
+Shopping Guardrail may appear in Notes or the spouse communication area as linked discussion, but the shopping approval request should remain the source of truth.
+
+Audit history should record:
+
+- Shopping check created
+- Approval requested
+- Approval response
+- Comment added
+- Warning override confirmed
+- Converted to transaction
+- Cancelled
+- Expired
+
 ## 21. Category Carryover
 
 Variable category budgets should reset each month, but unused money and overspending should carry forward by category.
@@ -1184,6 +1298,11 @@ Required validations:
 - Income amounts must be positive numbers.
 - Spending transaction must have a date, merchant, amount, and category.
 - Split transaction category amounts must equal total transaction amount.
+- Shopping Guardrail check must have a date, merchant, positive amount, category, and cash-flow treatment.
+- Shopping Guardrail warnings must require explicit confirmation before saving or converting.
+- Shopping Guardrail approval requests should expire after the purchase date passes.
+- Credit-card Shopping Guardrail checks should trigger category warnings only and should not affect checking cash-flow preview.
+- Cash/debit Shopping Guardrail checks should trigger category warnings and cash-flow warnings.
 - Savings withdrawal cannot exceed available fund balance.
 - Bill must have name, expected amount, and due date.
 - Recurring template changes must ask how to apply changes.
@@ -1255,6 +1374,14 @@ The builder should verify:
 - Dark mode loads by default.
 - Light mode is available.
 - Mobile quick-add transaction flow works.
+- Shopping Guardrail pre-purchase check calculates category impact.
+- Shopping Guardrail quick-add warning appears before saving a risky transaction.
+- Cash/debit Shopping Guardrail check detects low-balance and negative cash-flow risk.
+- Credit-card Shopping Guardrail check does not affect checking cash-flow preview.
+- Shopping Guardrail warnings require confirmation before saving or converting.
+- Shopping Guardrail spouse approval can be requested, approved, wait-requested, commented on, cancelled, and converted to a transaction.
+- Shopping Guardrail requests expire after the purchase date passes.
+- Shopping Guardrail actions and warning overrides appear in audit history.
 
 ## 43. Future Enhancements
 

@@ -31,6 +31,7 @@ function monthlyDate(month: number, day: number) {
 
 async function main() {
   await prisma.auditEvent.deleteMany({ where: { householdId } });
+  await prisma.shoppingCheck.deleteMany({ where: { householdId } });
   await prisma.transactionSplit.deleteMany({ where: { transaction: { householdId } } });
   await prisma.transaction.deleteMany({ where: { householdId } });
   await prisma.receipt.deleteMany({ where: { householdId } });
@@ -108,6 +109,9 @@ async function main() {
       await prisma.transactionSplit.create({ data: { transactionId: created.id, categoryId: categoryIds.get(category)!, amountCents: amount } });
     }
   }
+
+  await prisma.shoppingCheck.create({ data: { householdId, budgetMonthId: monthIds.get("2026-08")!, date: date("2026-08-04"), merchant: "Target", categoryId: categoryIds.get("Household Supplies")!, amountCents: 18000, cashFlowTreatment: "CASH_DEBIT", status: "PENDING_APPROVAL", requestNote: "Checking before buying storage bins and cleaning supplies.", requestedByMemberId: actorId } });
+  await prisma.shoppingCheck.create({ data: { householdId, budgetMonthId: monthIds.get("2026-08")!, date: date("2026-08-05"), merchant: "School Supply Store", categoryId: categoryIds.get("School")!, amountCents: 22000, cashFlowTreatment: "CREDIT_CARD", status: "WAIT_REQUESTED", requestNote: "Teacher list estimate before checkout.", reviewResponseNote: "Wait until we compare against the school supply future expense.", requestedByMemberId: members.get("TCH")!, reviewedByMemberId: actorId, reviewedAt: new Date() } });
 
   await prisma.plannedExpense.create({ data: { householdId, budgetMonthId: monthIds.get("2026-08")!, date: date("2026-08-10"), description: "Back to school clothes", categoryId: categoryIds.get("Clothing")!, expectedAmountCents: 30000, createdByMemberId: actorId } });
   await prisma.plannedExpense.create({ data: { householdId, budgetMonthId: monthIds.get("2026-12")!, date: date("2026-12-15"), description: "Christmas gifts", categoryId: categoryIds.get("Gifts")!, expectedAmountCents: 50000, createdByMemberId: actorId } });

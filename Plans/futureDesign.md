@@ -84,7 +84,22 @@ Suggested set-aside: $225/month for 2 months
 
 ## 4. Shopping App Popup / Shopping Guardrail
 
-The household wants the app to help interrupt or warn before spending inside shopping apps or shopping websites.
+Status: in-app Shopping Guardrail promoted into MVP scope. The source of truth for the in-app feature is now `Plans/plan.md`, with implementation guidance in `Plans/design.md`.
+
+The household wants the app to help interrupt or warn before spending. For MVP, this should be handled inside the app through a Shopping Guardrail workflow on the Spending page, mobile quick-add flow, dashboard summaries where practical, and the Guide page.
+
+In-app MVP behavior:
+
+- Support both pre-purchase checks and transaction quick-add warnings.
+- Show category impact for cash/debit and credit-card purchases.
+- Show checking cash-flow impact only for cash/debit purchases.
+- Require explicit confirmation before saving against warnings.
+- Support in-app spouse approval requests.
+- Expire approval requests after the purchase date passes.
+- Support manual cancellation.
+- Record meaningful actions in audit history.
+
+True third-party shopping app or website popups remain future enhancements because they have platform constraints.
 
 This goal has platform constraints.
 
@@ -93,7 +108,7 @@ Possible approaches:
 - Browser extension: Detect shopping websites such as Amazon, Target, Walmart, or grocery sites and show a budget reminder overlay.
 - Android companion app: Potentially detect when selected shopping apps are opened and show a warning or quick budget check, depending on Android permissions.
 - iOS companion app: Limited, because iOS generally does not allow arbitrary popups over other apps.
-- MVP fallback: Add an in-app `Shopping Check` screen, mobile shortcut, or installable PWA entry point that shows remaining category budgets before shopping.
+- PWA shortcut: Add a direct entry point to the in-app Shopping Guardrail for faster mobile access.
 
 Future behavior:
 
@@ -123,7 +138,7 @@ Recommended future phases:
 2. Store the user-entered threshold.
 3. Add low-balance forecasting warnings after a threshold exists.
 4. Add future expense planner and affordability checks. This has been promoted into MVP scope and should be implemented from `Plans/plan.md` and `Plans/design.md`.
-5. Add mobile `Shopping Check` screen or PWA shortcut.
+5. Add in-app Shopping Guardrail from `Plans/plan.md` and `Plans/design.md`.
 6. Consider browser extension support for shopping websites.
 7. Consider Android companion support if native app detection is still desired.
 8. Treat iOS native app popup support as limited unless platform capabilities change.
