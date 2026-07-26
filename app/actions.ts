@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentMember } from "@/lib/auth/session";
 import { createTransactionSchema } from "@/lib/validation/spending";
+import { convertShoppingCheckSchema, createShoppingCheckSchema, respondToShoppingCheckSchema, shoppingCheckIdSchema } from "@/lib/validation/shopping-guardrail";
 import { billIdSchema, updateBillInstanceSchema, updateBillSchema } from "@/lib/validation/bills";
 import { incomeEntryIdSchema, updateIncomeActualSchema } from "@/lib/validation/income";
 import { createSavingsFundSchema, savingsActivitySchema, savingsFundIdSchema, updateSavingsFundSchema } from "@/lib/validation/savings";
@@ -15,6 +16,8 @@ import { parseFormOrThrow } from "@/lib/validation/form";
 import { canDeleteCategory } from "@/lib/categories";
 import { canDeleteSavingsFund } from "@/lib/calculations/savings";
 import { canDeleteDebtAccount } from "@/lib/calculations/debt";
+import { calculateShoppingGuardrailPreview } from "@/lib/calculations/shopping-guardrail";
+import { getBudgetData } from "@/lib/services/budget-data-service";
 import { dateString, nonNegativeCents, positiveCents } from "@/lib/validation/shared";
 import { z } from "zod";
 
@@ -50,6 +53,12 @@ async function audit(householdId: string, actorMemberId: string, entityType: str
   await prisma.auditEvent.create({ data: { householdId, actorMemberId, entityType, entityId, action, fieldName, oldValueJson: oldValueJson ?? undefined, newValueJson: newValueJson ?? undefined } });
 }
 
+function isOpenShoppingCheckExpired(status: string, purchaseDate: Date) {
+  const dateValue = dateOnly(purchaseDate);
+  const today = new Date().toISOString().slice(0, 10);
+  return (status === "DRAFT" || status === "PENDING_APPROVAL") && dateValue < today;
+}
+
 function revalidateBudgetPages() {
   for (const path of ["/dashboard", "/cash-flow", "/calendar", "/income", "/bills", "/spending", "/future-expenses", "/savings", "/debt", "/reports", "/setup", "/notes", "/audit-history"]) revalidatePath(path);
 }
@@ -66,9 +75,16 @@ export async function createTransactionAction(formData: FormData) {
   const { household, member } = await getCurrentMember();
   const parsed = parseFormOrThrow(createTransactionSchema, { date: formString(formData, "date"), merchant: formString(formData, "merchant"), amountCents: formString(formData, "amount"), categoryId: formString(formData, "categoryId"), cashFlowTreatment: formString(formData, "cashFlowTreatment"), plannedStatus: formString(formData, "plannedStatus"), isReimbursable: formData.get("isReimbursable") === "on", notes: formString(formData, "notes") });
   const budgetMonthId = await budgetMonthIdForDate(household.id, parsed.date);
+  const confirmOverride = formData.get("confirmOverride") === "on";
+  const data = await getBudgetData();
+  const month = data.months.find((item) => item.startDate <= parsed.date && item.endDate >= parsed.date);
+  if (!month) throw new Error("Date must be inside the July-Dec 2026 budget period.");
+  const preview = calculateShoppingGuardrailPreview({ check: { monthId: month.id, date: parsed.date, merchant: parsed.merchant, categoryId: parsed.categoryId, amountCents: parsed.amountCents, cashFlowTreatment: parsed.cashFlowTreatment }, month, categories: data.categories, transactions: data.transactions.filter((item) => item.monthId === month.id), income: data.income.filter((item) => item.monthId === month.id), bills: data.bills.filter((item) => item.monthId === month.id), plannedExpenses: data.plannedExpenses.filter((item) => item.monthId === month.id), savingsActivities: data.savingsActivities.filter((item) => item.monthId === month.id), debtAccounts: data.debtAccounts, lowBalanceThresholdCents: data.household.lowBalanceThresholdCents });
+  if (preview.requiresConfirmation && !confirmOverride) throw new Error("Confirm the Shopping Guardrail warning before saving this transaction.");
   await prisma.$transaction(async (db) => {
     const created = await db.transaction.create({ data: { householdId: household.id, budgetMonthId, date: date(parsed.date), merchant: parsed.merchant, totalAmountCents: parsed.amountCents, cashFlowTreatment: parsed.cashFlowTreatment, plannedStatus: parsed.plannedStatus, isReimbursable: parsed.isReimbursable, notes: parsed.notes || null, createdByMemberId: member.id } });
     await db.transactionSplit.create({ data: { transactionId: created.id, categoryId: parsed.categoryId, amountCents: parsed.amountCents } });
+    if (preview.requiresConfirmation) await db.auditEvent.create({ data: { householdId: household.id, actorMemberId: member.id, entityType: "Transaction", entityId: created.id, action: "shopping_guardrail_override_confirmed", newValueJson: { warnings: preview.warnings } } });
     await db.auditEvent.create({ data: { householdId: household.id, actorMemberId: member.id, entityType: "Transaction", entityId: created.id, action: "created", newValueJson: { merchant: parsed.merchant, amountCents: parsed.amountCents } } });
   });
   revalidateBudgetPages();
@@ -81,6 +97,70 @@ export async function deleteTransactionAction(formData: FormData) {
   await prisma.$transaction(async (db) => {
     await db.transaction.delete({ where: { id } });
     await db.auditEvent.create({ data: { householdId: household.id, actorMemberId: member.id, entityType: "Transaction", entityId: id, action: "deleted", oldValueJson: { merchant: existing.merchant, amountCents: existing.totalAmountCents } } });
+  });
+  revalidateBudgetPages();
+}
+
+export async function createShoppingCheckAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(createShoppingCheckSchema, { date: formString(formData, "date"), merchant: formString(formData, "merchant"), amountCents: formString(formData, "amount"), categoryId: formString(formData, "categoryId"), cashFlowTreatment: formString(formData, "cashFlowTreatment"), requestNote: formString(formData, "requestNote"), intent: formString(formData, "intent") || "SAVE" });
+  const budgetMonthId = await budgetMonthIdForDate(household.id, parsed.date);
+  const status = parsed.intent === "ASK_SPOUSE" ? "PENDING_APPROVAL" : "DRAFT";
+  const created = await prisma.shoppingCheck.create({ data: { householdId: household.id, budgetMonthId, date: date(parsed.date), merchant: parsed.merchant, categoryId: parsed.categoryId, amountCents: parsed.amountCents, cashFlowTreatment: parsed.cashFlowTreatment, status, requestNote: parsed.requestNote || null, requestedByMemberId: member.id } });
+  await audit(household.id, member.id, "ShoppingCheck", created.id, status === "PENDING_APPROVAL" ? "approval_requested" : "created", null, null, { merchant: parsed.merchant, amountCents: parsed.amountCents, status });
+  revalidateBudgetPages();
+}
+
+export async function respondToShoppingCheckAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(respondToShoppingCheckSchema, { id: formString(formData, "id"), response: formString(formData, "response"), responseNote: formString(formData, "responseNote") });
+  const existing = await prisma.shoppingCheck.findFirstOrThrow({ where: { id: parsed.id, householdId: household.id } });
+  if (existing.requestedByMemberId === member.id) throw new Error("The requesting spouse cannot approve their own shopping check.");
+  if (isOpenShoppingCheckExpired(existing.status, existing.date)) {
+    await prisma.shoppingCheck.update({ where: { id: parsed.id }, data: { status: "EXPIRED" } });
+    await audit(household.id, member.id, "ShoppingCheck", parsed.id, "expired", "status", { status: existing.status }, { status: "EXPIRED" });
+    throw new Error("This shopping check expired after its purchase date passed.");
+  }
+  if (!["DRAFT", "PENDING_APPROVAL", "APPROVED", "WAIT_REQUESTED"].includes(existing.status)) throw new Error("Only open shopping checks can receive a response.");
+  await prisma.shoppingCheck.update({ where: { id: parsed.id }, data: { status: parsed.response, reviewedByMemberId: member.id, reviewedAt: new Date(), reviewResponseNote: parsed.responseNote || null } });
+  await audit(household.id, member.id, "ShoppingCheck", parsed.id, parsed.response === "APPROVED" ? "approved" : "wait_requested", "status", { status: existing.status }, { status: parsed.response, responseNote: parsed.responseNote || null });
+  revalidateBudgetPages();
+}
+
+export async function cancelShoppingCheckAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(shoppingCheckIdSchema, { id: formString(formData, "id") });
+  const existing = await prisma.shoppingCheck.findFirstOrThrow({ where: { id: parsed.id, householdId: household.id } });
+  if (existing.status === "CONVERTED_TO_TRANSACTION") throw new Error("Converted shopping checks cannot be cancelled.");
+  await prisma.shoppingCheck.update({ where: { id: parsed.id }, data: { status: "CANCELLED" } });
+  await audit(household.id, member.id, "ShoppingCheck", parsed.id, "cancelled", "status", { status: existing.status }, { status: "CANCELLED" });
+  revalidateBudgetPages();
+}
+
+async function shoppingCheckPreviewRequiresConfirmation(checkId: string, householdId: string) {
+  const data = await getBudgetData();
+  const check = data.shoppingChecks.find((item) => item.id === checkId);
+  if (!check) throw new Error("Shopping check was not found.");
+  const month = data.months.find((item) => item.id === check.monthId);
+  if (!month) throw new Error("Shopping check month was not found.");
+  const preview = calculateShoppingGuardrailPreview({ check, month, categories: data.categories, transactions: data.transactions.filter((item) => item.monthId === month.id), income: data.income.filter((item) => item.monthId === month.id), bills: data.bills.filter((item) => item.monthId === month.id), plannedExpenses: data.plannedExpenses.filter((item) => item.monthId === month.id), savingsActivities: data.savingsActivities.filter((item) => item.monthId === month.id), debtAccounts: data.debtAccounts, lowBalanceThresholdCents: data.household.lowBalanceThresholdCents });
+  const persisted = await prisma.shoppingCheck.findFirstOrThrow({ where: { id: checkId, householdId } });
+  return { check, preview, persisted, requiresConfirmation: preview.requiresConfirmation || persisted.status === "CANCELLED" };
+}
+
+export async function convertShoppingCheckToTransactionAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(convertShoppingCheckSchema, { id: formString(formData, "id"), confirmOverride: formData.get("confirmOverride") === "on", notes: formString(formData, "notes") });
+  const { check, preview, persisted, requiresConfirmation } = await shoppingCheckPreviewRequiresConfirmation(parsed.id, household.id);
+  if (persisted.status === "CONVERTED_TO_TRANSACTION") throw new Error("This shopping check has already been converted.");
+  if (requiresConfirmation && !parsed.confirmOverride) throw new Error("Confirm the Shopping Guardrail warning before converting this check.");
+  await prisma.$transaction(async (db) => {
+    const created = await db.transaction.create({ data: { householdId: household.id, budgetMonthId: persisted.budgetMonthId, date: persisted.date, merchant: persisted.merchant, totalAmountCents: persisted.amountCents, cashFlowTreatment: persisted.cashFlowTreatment, plannedStatus: "UNPLANNED", isReimbursable: false, notes: parsed.notes || persisted.requestNote || null, createdByMemberId: member.id } });
+    await db.transactionSplit.create({ data: { transactionId: created.id, categoryId: persisted.categoryId, amountCents: persisted.amountCents } });
+    await db.shoppingCheck.update({ where: { id: persisted.id }, data: { status: "CONVERTED_TO_TRANSACTION", convertedTransactionId: created.id } });
+    if (requiresConfirmation) await db.auditEvent.create({ data: { householdId: household.id, actorMemberId: member.id, entityType: "ShoppingCheck", entityId: persisted.id, action: "warning_override_confirmed", newValueJson: { warnings: preview.warnings } } });
+    await db.auditEvent.create({ data: { householdId: household.id, actorMemberId: member.id, entityType: "ShoppingCheck", entityId: persisted.id, action: "converted_to_transaction", newValueJson: { transactionId: created.id, merchant: check.merchant, amountCents: check.amountCents } } });
+    await db.auditEvent.create({ data: { householdId: household.id, actorMemberId: member.id, entityType: "Transaction", entityId: created.id, action: "created", newValueJson: { merchant: persisted.merchant, amountCents: persisted.amountCents, sourceShoppingCheckId: persisted.id } } });
   });
   revalidateBudgetPages();
 }

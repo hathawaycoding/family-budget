@@ -9,6 +9,7 @@ import { canDeleteDebtAccount } from "@/lib/calculations/debt";
 import { getZeroBasedSummary } from "@/lib/calculations/zero-based-budget";
 import { getCategoryCarryover } from "@/lib/calculations/category-carryover";
 import { calculateCustomSetAsideProgress, calculateEqualMonthlySetAside, getIncludedFutureExpenses } from "@/lib/calculations/future-expenses";
+import { calculateShoppingGuardrailPreview, getEffectiveShoppingCheckStatus } from "@/lib/calculations/shopping-guardrail";
 import { bills, categories, debtAccounts, income, months, plannedExpenses, savingsActivities, savingsFunds, transactions } from "@/lib/sample-data";
 import { activeSavingsFunds, canDeleteSavingsFund, canWithdraw, getSavingsActivityAmount, getSavingsActivityKind, getSavingsBalance, getSavingsFundStatus } from "@/lib/calculations/savings";
 import { billIdSchema, updateBillInstanceSchema, updateBillSchema } from "@/lib/validation/bills";
@@ -17,6 +18,7 @@ import { categoryIdSchema, createCategorySchema, lowBalanceThresholdSchema, rena
 import { createSavingsFundSchema, savingsFundIdSchema, updateSavingsFundSchema } from "@/lib/validation/savings";
 import { createDebtAccountSchema, debtAccountIdSchema, debtPaymentSchema, updateDebtAccountSchema } from "@/lib/validation/debt";
 import { noteSchema } from "@/lib/validation/notes";
+import { createShoppingCheckSchema } from "@/lib/validation/shopping-guardrail";
 import { parseFormOrThrow } from "@/lib/validation/form";
 import type { BillInstance, BudgetMonth, CashFlowRow, FutureExpense, IncomeEntry, SavingsFund, SpendingTransaction } from "@/lib/types";
 
@@ -338,6 +340,49 @@ describe("budget calculations", () => {
     expect(() => parseFormOrThrow(createSavingsFundSchema, { name: "Car", type: "SINKING", mode: "OPEN_ENDED", startingBalanceCents: "", targetAmountCents: "", plannedContributionCents: "", dueDate: "" })).not.toThrow();
   });
 
+  it("shows Shopping Guardrail category warnings", () => {
+    const month = months[0];
+    const category = { id: "guardrail-category", name: "Guardrail", baseMonthlyBudgetCents: 10000, isActive: true };
+    const transaction: SpendingTransaction = { ...transactions[0], id: "guardrail-spent", monthId: month.id, totalAmountCents: 7000, splits: [{ categoryId: category.id, amountCents: 7000 }] };
+    const preview = calculateShoppingGuardrailPreview({ check: { monthId: month.id, date: "2026-07-10", merchant: "Store", categoryId: category.id, amountCents: 1500, cashFlowTreatment: "CREDIT_CARD" }, month, categories: [category], transactions: [transaction], income: [], bills: [], plannedExpenses: [], savingsActivities: [], debtAccounts: [] });
+
+    expect(preview.warnings).toContain("Near category limit");
+    expect(preview.projectedBalanceAfterPurchaseCents).toBeNull();
+  });
+
+  it("shows Shopping Guardrail over-category warnings", () => {
+    const month = months[0];
+    const category = { id: "guardrail-over", name: "Guardrail", baseMonthlyBudgetCents: 10000, isActive: true };
+    const preview = calculateShoppingGuardrailPreview({ check: { monthId: month.id, date: "2026-07-10", merchant: "Store", categoryId: category.id, amountCents: 11000, cashFlowTreatment: "CREDIT_CARD" }, month, categories: [category], transactions: [], income: [], bills: [], plannedExpenses: [], savingsActivities: [], debtAccounts: [] });
+
+    expect(preview.warnings).toContain("Over category");
+    expect(preview.requiresConfirmation).toBe(true);
+  });
+
+  it("shows Shopping Guardrail cash/debit cash-flow warnings", () => {
+    const month: BudgetMonth = { ...months[0], startingBalanceCents: 10000 };
+    const category = { id: "guardrail-cash", name: "Guardrail", baseMonthlyBudgetCents: 50000, isActive: true };
+    const preview = calculateShoppingGuardrailPreview({ check: { monthId: month.id, date: "2026-07-03", merchant: "Store", categoryId: category.id, amountCents: 15000, cashFlowTreatment: "CASH_DEBIT" }, month, categories: [category], transactions: [], income: [], bills: [], plannedExpenses: [], savingsActivities: [], debtAccounts: [] });
+
+    expect(preview.warnings).toContain("Negative cash-flow risk");
+    expect(preview.projectedBalanceAfterPurchaseCents).toBeLessThan(0);
+  });
+
+  it("keeps Shopping Guardrail credit-card checks out of cash-flow preview", () => {
+    const month: BudgetMonth = { ...months[0], startingBalanceCents: 10000 };
+    const category = { id: "guardrail-card", name: "Guardrail", baseMonthlyBudgetCents: 50000, isActive: true };
+    const preview = calculateShoppingGuardrailPreview({ check: { monthId: month.id, date: "2026-07-03", merchant: "Store", categoryId: category.id, amountCents: 15000, cashFlowTreatment: "CREDIT_CARD" }, month, categories: [category], transactions: [], income: [], bills: [], plannedExpenses: [], savingsActivities: [], debtAccounts: [], lowBalanceThresholdCents: 50000 });
+
+    expect(preview.warnings).not.toContain("Negative cash-flow risk");
+    expect(preview.warnings).not.toContain("Low-balance risk");
+    expect(preview.projectedBalanceAfterPurchaseCents).toBeNull();
+  });
+
+  it("expires open Shopping Guardrail requests after the purchase date", () => {
+    expect(getEffectiveShoppingCheckStatus("PENDING_APPROVAL", "2026-07-01", "2026-07-02")).toBe("EXPIRED");
+    expect(getEffectiveShoppingCheckStatus("APPROVED", "2026-07-01", "2026-07-02")).toBe("APPROVED");
+  });
+
   it("accepts blank and non-negative low-balance thresholds", () => {
     expect(lowBalanceThresholdSchema.parse({ lowBalanceThresholdCents: "" })).toEqual({ lowBalanceThresholdCents: null });
     expect(lowBalanceThresholdSchema.parse({ lowBalanceThresholdCents: "500" })).toEqual({ lowBalanceThresholdCents: 50000 });
@@ -430,6 +475,15 @@ describe("budget calculations", () => {
   it("accepts valid category creation and defaults blank budgets to zero", () => {
     expect(createCategorySchema.parse({ name: " Pets ", baseMonthlyBudgetCents: "75.25" })).toEqual({ name: "Pets", baseMonthlyBudgetCents: 7525 });
     expect(createCategorySchema.parse({ name: "Pets", baseMonthlyBudgetCents: "" })).toEqual({ name: "Pets", baseMonthlyBudgetCents: 0 });
+  });
+
+  it("accepts valid Shopping Guardrail inputs", () => {
+    expect(createShoppingCheckSchema.parse({ date: "2026-08-04", merchant: " Target ", amountCents: "180", categoryId: "category-1", cashFlowTreatment: "CASH_DEBIT", requestNote: "Check first", intent: "ASK_SPOUSE" })).toEqual({ date: "2026-08-04", merchant: "Target", amountCents: 18000, categoryId: "category-1", cashFlowTreatment: "CASH_DEBIT", requestNote: "Check first", intent: "ASK_SPOUSE" });
+  });
+
+  it("rejects invalid Shopping Guardrail inputs", () => {
+    expect(() => createShoppingCheckSchema.parse({ date: "2026-08-04", merchant: "", amountCents: "180", categoryId: "category-1", cashFlowTreatment: "CASH_DEBIT", intent: "ASK_SPOUSE" })).toThrow();
+    expect(() => createShoppingCheckSchema.parse({ date: "2026-08-04", merchant: "Target", amountCents: "-1", categoryId: "category-1", cashFlowTreatment: "CASH_DEBIT", intent: "ASK_SPOUSE" })).toThrow();
   });
 
   it("rejects invalid category creation inputs", () => {

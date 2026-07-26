@@ -453,6 +453,7 @@ Core model groups:
 - SpendingCategory
 - Transaction
 - TransactionSplit
+- ShoppingCheck
 - Receipt
 - PlannedExpense
 - FutureExpense
@@ -689,6 +690,59 @@ Validation:
 ```text
 Sum of splits must equal transaction total.
 ```
+
+### ShoppingCheck
+
+```text
+id
+householdId
+budgetMonthId
+date
+merchant
+categoryId
+amountCents
+cashFlowTreatment: CASH_DEBIT | CREDIT_CARD
+status: DRAFT | PENDING_APPROVAL | APPROVED | WAIT_REQUESTED | CONVERTED_TO_TRANSACTION | CANCELLED | EXPIRED
+requestedByMemberId
+reviewedByMemberId nullable
+reviewedAt nullable
+requestNote nullable
+reviewResponseNote nullable
+convertedTransactionId nullable
+createdAt
+updatedAt
+```
+
+Shopping checks support both pre-purchase checks and transaction quick-add guardrail previews.
+
+Rules:
+
+- Shopping checks are preview/approval records until converted to transactions.
+- Unconverted shopping checks should not affect official spending totals, category actuals, cash flow, or debt balances.
+- Every shopping check should preview category impact.
+- Cash/debit shopping checks should preview checking cash-flow impact.
+- Credit-card shopping checks should not preview checking cash-flow impact and should not update debt balances.
+- Warning overrides should create audit events.
+- Approval requests should expire after the purchase date passes.
+- Cancelled and expired checks should not convert to transactions unless the user explicitly confirms a warning override or reopens the request.
+
+Suggested warning labels:
+
+- Looks okay
+- Near category limit
+- Over category
+- Low-balance risk
+- Negative cash-flow risk
+- Approval pending
+- Wait requested
+- Expired
+
+Spouse approval behavior:
+
+- Either household member may create a request.
+- The other member may approve, request waiting, or add a response note.
+- Approval does not hard-block transaction creation.
+- Converting while approval is pending, wait requested, expired, or while budget/cash-flow warnings exist requires explicit confirmation.
 
 ## 24. Receipt Model
 
@@ -1015,6 +1069,7 @@ Inputs:
 - Income entries
 - Bill instances
 - Cash/debit transactions
+- Cash/debit shopping checks in preview mode only
 - Planned one-time expenses
 - Active future expenses included in preview mode
 - Savings contributions
@@ -1046,6 +1101,14 @@ Credit card spending transactions:
 Count toward category budgets.
 Do not reduce checking cash flow.
 Do not update credit card balance.
+```
+
+Shopping checks:
+
+```text
+Preview category impact for all shopping checks.
+Preview checking cash-flow impact only for cash/debit shopping checks.
+Do not include shopping checks in official cash-flow calculations until converted to a transaction.
 ```
 
 The timeline should include every calendar day.
@@ -1128,6 +1191,35 @@ If the custom schedule does not fully fund the expense by the due date, show a w
 
 Preview calculations should not mutate stored budget months, planned expenses, savings funds, or cash-flow state.
 
+## 33.2 Shopping Guardrail Engine
+
+Shopping Guardrail calculations should live outside UI components and should reuse the category carryover and cash-flow calculation behavior where practical.
+
+Recommended functions:
+
+```text
+calculateShoppingGuardrailPreview
+calculateShoppingCategoryImpact
+calculateShoppingCashFlowImpact
+expireShoppingChecksAfterPurchaseDate
+```
+
+Preview behavior:
+
+- Category impact applies to cash/debit and credit-card checks.
+- Cash-flow impact applies only to cash/debit checks.
+- Credit-card checks should not reduce checking cash flow and should not update credit card debt.
+- Low-balance warnings should require `Household.lowBalanceThresholdCents`.
+- Negative cash-flow warnings should not require a low-balance threshold.
+- Preview calculations should not mutate official transactions, category actuals, debt balances, or cash-flow state.
+
+Expiration behavior:
+
+- A pending or draft shopping check should be treated as expired after its purchase date passes.
+- Expiration may be calculated lazily during reads or persisted through a scheduled/manual maintenance action.
+- If persisted, expiration should create an audit event.
+- Manual cancellation should create an audit event.
+
 ## 34. Category Carryover Engine
 
 Each category should track:
@@ -1177,6 +1269,14 @@ skipBill
 createTransaction
 updateTransaction
 deleteTransaction
+createShoppingCheck
+updateShoppingCheck
+requestShoppingApproval
+respondToShoppingCheck
+cancelShoppingCheck
+convertShoppingCheckToTransaction
+confirmShoppingWarningOverride
+expireShoppingChecks
 createFutureExpense
 updateFutureExpense
 deleteFutureExpense
@@ -1225,6 +1325,9 @@ Required rules:
 - Income amounts must be positive.
 - Transaction requires date, merchant, amount, and category/splits.
 - Split transaction split total must equal transaction total.
+- Shopping check requires date, merchant, positive amount, category, and cash-flow treatment.
+- Shopping check conversion with warnings requires explicit confirmation.
+- Shopping approval requests expire after the purchase date passes.
 - Future expense requires description, positive expected amount, due date, category, and priority.
 - Recurring future expense requires a recurrence rule.
 - Future expense custom contribution rows require positive amount and valid month or date.
@@ -1283,6 +1386,7 @@ Unit tests:
 - Savings withdrawal validation
 - Debt interest estimate
 - Split transaction validation
+- Shopping Guardrail preview and warning confirmation
 - Future expense validation
 - Future expense set-aside calculations
 - Future expense preview affordability and cash-flow risk
@@ -1304,6 +1408,7 @@ E2E tests:
 - Select active actor
 - Dashboard loads
 - Add transaction
+- Create Shopping Guardrail request and convert it to a transaction
 - Add split transaction
 - Add future expense and review preview impact
 - Mark bill paid
@@ -1393,6 +1498,8 @@ Do not include personal identifiers, real bank names, account numbers, addresses
 
 - Add spending categories.
 - Add transaction quick-add.
+- Add Shopping Guardrail pre-purchase check and quick-add warning preview.
+- Add spouse approval request, response, cancellation, expiration, and conversion flows.
 - Add split transactions.
 - Add category carryover.
 - Add 80% category alerts.

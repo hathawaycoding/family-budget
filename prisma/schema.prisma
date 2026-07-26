@@ -78,6 +78,16 @@ enum FutureExpenseSetAsideMode {
   CUSTOM
 }
 
+enum ShoppingCheckStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  WAIT_REQUESTED
+  CONVERTED_TO_TRANSACTION
+  CANCELLED
+  EXPIRED
+}
+
 enum RecurrenceFrequency {
   DAILY
   WEEKLY
@@ -104,6 +114,7 @@ model Household {
   billInstances       BillInstance[]
   spendingCategories  SpendingCategory[]
   transactions        Transaction[]
+  shoppingChecks      ShoppingCheck[]
   receipts            Receipt[]
   plannedExpenses     PlannedExpense[]
   futureExpenses      FutureExpense[]
@@ -133,6 +144,8 @@ model HouseholdMember {
   updatedBillInstances  BillInstance[]    @relation("BillInstanceUpdatedBy")
   createdTransactions   Transaction[]     @relation("TransactionCreatedBy")
   updatedTransactions   Transaction[]     @relation("TransactionUpdatedBy")
+  requestedShoppingChecks ShoppingCheck[]  @relation("ShoppingCheckRequestedBy")
+  reviewedShoppingChecks  ShoppingCheck[]  @relation("ShoppingCheckReviewedBy")
   uploadedReceipts      Receipt[]
   createdExpenses       PlannedExpense[]  @relation("PlannedExpenseCreatedBy")
   updatedExpenses       PlannedExpense[]  @relation("PlannedExpenseUpdatedBy")
@@ -171,6 +184,7 @@ model BudgetMonth {
   incomeEntries                IncomeEntry[]
   billInstances                BillInstance[]
   transactions                 Transaction[]
+  shoppingChecks               ShoppingCheck[]
   plannedExpenses              PlannedExpense[]
   futureExpenses               FutureExpense[]
   futureExpenseContributions   FutureExpenseContribution[]
@@ -304,6 +318,7 @@ model SpendingCategory {
   updatedAt              DateTime           @updatedAt
   household              Household          @relation(fields: [householdId], references: [id])
   splits                 TransactionSplit[]
+  shoppingChecks         ShoppingCheck[]
   plannedExpenses        PlannedExpense[]
   futureExpenses         FutureExpense[]
 
@@ -332,6 +347,7 @@ model Transaction {
   createdBy         HouseholdMember   @relation("TransactionCreatedBy", fields: [createdByMemberId], references: [id])
   updatedBy         HouseholdMember?  @relation("TransactionUpdatedBy", fields: [updatedByMemberId], references: [id])
   splits            TransactionSplit[]
+  convertedShoppingCheck ShoppingCheck? @relation("ShoppingCheckConvertedTransaction")
 }
 
 model TransactionSplit {
@@ -343,6 +359,32 @@ model TransactionSplit {
   updatedAt     DateTime         @updatedAt
   transaction   Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   category      SpendingCategory @relation(fields: [categoryId], references: [id])
+}
+
+model ShoppingCheck {
+  id                     String              @id @default(cuid())
+  householdId            String
+  budgetMonthId          String
+  date                   DateTime            @db.Date
+  merchant               String
+  categoryId             String
+  amountCents            Int
+  cashFlowTreatment      CashFlowTreatment    @default(CASH_DEBIT)
+  status                 ShoppingCheckStatus  @default(DRAFT)
+  requestedByMemberId    String
+  reviewedByMemberId     String?
+  reviewedAt             DateTime?
+  requestNote            String?
+  reviewResponseNote     String?
+  convertedTransactionId String?              @unique
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  household              Household            @relation(fields: [householdId], references: [id])
+  budgetMonth            BudgetMonth          @relation(fields: [budgetMonthId], references: [id])
+  category               SpendingCategory     @relation(fields: [categoryId], references: [id])
+  requestedBy            HouseholdMember      @relation("ShoppingCheckRequestedBy", fields: [requestedByMemberId], references: [id])
+  reviewedBy             HouseholdMember?     @relation("ShoppingCheckReviewedBy", fields: [reviewedByMemberId], references: [id])
+  convertedTransaction   Transaction?         @relation("ShoppingCheckConvertedTransaction", fields: [convertedTransactionId], references: [id])
 }
 
 model Receipt {
