@@ -52,6 +52,32 @@ enum FundGoalMode {
   OPEN_ENDED
 }
 
+enum FutureExpensePriority {
+  LOW
+  MEDIUM
+  HIGH
+  MUST_PAY
+}
+
+enum FutureExpenseType {
+  ONE_TIME
+  RECURRING
+}
+
+enum FutureExpenseStatus {
+  DRAFT
+  ACTIVE
+  CONVERTED_TO_PLANNED_EXPENSE
+  CONVERTED_TO_SINKING_FUND
+  COMPLETED
+  CANCELLED
+}
+
+enum FutureExpenseSetAsideMode {
+  EQUAL_MONTHLY
+  CUSTOM
+}
+
 enum RecurrenceFrequency {
   DAILY
   WEEKLY
@@ -80,6 +106,8 @@ model Household {
   transactions        Transaction[]
   receipts            Receipt[]
   plannedExpenses     PlannedExpense[]
+  futureExpenses      FutureExpense[]
+  futureExpenseContributions FutureExpenseContribution[]
   savingsFunds        SavingsFund[]
   savingsActivities   SavingsActivity[]
   debtAccounts        DebtAccount[]
@@ -108,6 +136,10 @@ model HouseholdMember {
   uploadedReceipts      Receipt[]
   createdExpenses       PlannedExpense[]  @relation("PlannedExpenseCreatedBy")
   updatedExpenses       PlannedExpense[]  @relation("PlannedExpenseUpdatedBy")
+  createdFutureExpenses FutureExpense[]   @relation("FutureExpenseCreatedBy")
+  updatedFutureExpenses FutureExpense[]   @relation("FutureExpenseUpdatedBy")
+  createdFutureExpenseContributions FutureExpenseContribution[] @relation("FutureExpenseContributionCreatedBy")
+  updatedFutureExpenseContributions FutureExpenseContribution[] @relation("FutureExpenseContributionUpdatedBy")
   createdSavings        SavingsActivity[] @relation("SavingsActivityCreatedBy")
   updatedSavings        SavingsActivity[] @relation("SavingsActivityUpdatedBy")
   createdSnapshots      DebtSnapshot[]
@@ -140,6 +172,8 @@ model BudgetMonth {
   billInstances                BillInstance[]
   transactions                 Transaction[]
   plannedExpenses              PlannedExpense[]
+  futureExpenses               FutureExpense[]
+  futureExpenseContributions   FutureExpenseContribution[]
   savingsActivities            SavingsActivity[]
   debtSnapshots                DebtSnapshot[]
   debtPayments                 DebtPayment[]
@@ -174,6 +208,7 @@ model RecurrenceRule {
   household      Household           @relation(fields: [householdId], references: [id])
   incomeSources  IncomeSource[]
   billTemplates  BillTemplate[]
+  futureExpenses FutureExpense[]
 }
 
 model IncomeSource {
@@ -270,6 +305,7 @@ model SpendingCategory {
   household              Household          @relation(fields: [householdId], references: [id])
   splits                 TransactionSplit[]
   plannedExpenses        PlannedExpense[]
+  futureExpenses         FutureExpense[]
 
   @@unique([householdId, name])
 }
@@ -334,6 +370,7 @@ model PlannedExpense {
   expectedAmountCents Int
   actualAmountCents   Int?
   isPaid              Boolean          @default(false)
+  sourceFutureExpenseId String?           @unique
   createdByMemberId   String
   updatedByMemberId   String?
   createdAt           DateTime         @default(now())
@@ -343,6 +380,57 @@ model PlannedExpense {
   category            SpendingCategory @relation(fields: [categoryId], references: [id])
   createdBy           HouseholdMember  @relation("PlannedExpenseCreatedBy", fields: [createdByMemberId], references: [id])
   updatedBy           HouseholdMember? @relation("PlannedExpenseUpdatedBy", fields: [updatedByMemberId], references: [id])
+  sourceFutureExpense FutureExpense?   @relation("FutureExpensePlannedConversion", fields: [sourceFutureExpenseId], references: [id])
+}
+
+model FutureExpense {
+  id                         String                    @id @default(cuid())
+  householdId                String
+  budgetMonthId              String?
+  description                String
+  expectedAmountCents        Int
+  dueDate                    DateTime                  @db.Date
+  categoryId                 String
+  priority                   FutureExpensePriority
+  notes                      String?
+  type                       FutureExpenseType         @default(ONE_TIME)
+  recurrenceRuleId           String?
+  status                     FutureExpenseStatus       @default(ACTIVE)
+  setAsideMode               FutureExpenseSetAsideMode @default(EQUAL_MONTHLY)
+  includeInPlanPreview       Boolean                   @default(true)
+  convertedPlannedExpenseId  String?                   @unique
+  convertedSavingsFundId     String?                   @unique
+  createdByMemberId          String
+  updatedByMemberId          String?
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+  household                  Household                 @relation(fields: [householdId], references: [id])
+  budgetMonth                BudgetMonth?              @relation(fields: [budgetMonthId], references: [id])
+  category                   SpendingCategory          @relation(fields: [categoryId], references: [id])
+  recurrenceRule             RecurrenceRule?           @relation(fields: [recurrenceRuleId], references: [id])
+  convertedPlannedExpense    PlannedExpense?           @relation("FutureExpensePlannedConversion")
+  convertedSavingsFund       SavingsFund?              @relation("FutureExpenseSavingsConversion", fields: [convertedSavingsFundId], references: [id])
+  createdBy                  HouseholdMember           @relation("FutureExpenseCreatedBy", fields: [createdByMemberId], references: [id])
+  updatedBy                  HouseholdMember?          @relation("FutureExpenseUpdatedBy", fields: [updatedByMemberId], references: [id])
+  contributions              FutureExpenseContribution[]
+}
+
+model FutureExpenseContribution {
+  id                String           @id @default(cuid())
+  householdId       String
+  futureExpenseId   String
+  budgetMonthId     String
+  date              DateTime?        @db.Date
+  plannedAmountCents Int
+  createdByMemberId String
+  updatedByMemberId String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  household         Household        @relation(fields: [householdId], references: [id])
+  futureExpense     FutureExpense    @relation(fields: [futureExpenseId], references: [id], onDelete: Cascade)
+  budgetMonth       BudgetMonth      @relation(fields: [budgetMonthId], references: [id])
+  createdBy         HouseholdMember  @relation("FutureExpenseContributionCreatedBy", fields: [createdByMemberId], references: [id])
+  updatedBy         HouseholdMember? @relation("FutureExpenseContributionUpdatedBy", fields: [updatedByMemberId], references: [id])
 }
 
 model SavingsFund {
@@ -356,10 +444,12 @@ model SavingsFund {
   targetAmountCents          Int?
   dueDate                    DateTime?         @db.Date
   plannedContributionCents   Int               @default(0)
+  linkedFutureExpenseId      String?           @unique
   isActive                   Boolean           @default(true)
   createdAt                  DateTime          @default(now())
   updatedAt                  DateTime          @updatedAt
   household                  Household         @relation(fields: [householdId], references: [id])
+  linkedFutureExpense        FutureExpense?    @relation("FutureExpenseSavingsConversion")
   activities                 SavingsActivity[]
 
   @@unique([householdId, name])

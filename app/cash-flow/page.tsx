@@ -93,8 +93,10 @@ function WarningCell({ row }: { row: CashFlowRow }) {
 }
 
 export default async function CashFlowPage() {
-  const { household, month, cashFlowRows, income, bills, transactions, plannedExpenses, savingsActivities, debtAccounts } = await getMonthBundle("2026-07");
+  const { household, month, cashFlowRows, previewCashFlowRows, futureExpenses, income, bills, transactions, plannedExpenses, savingsActivities, debtAccounts } = await getMonthBundle("2026-07");
   const summary = getCashFlowSummary(cashFlowRows, household.lowBalanceThresholdCents);
+  const previewSummary = getCashFlowSummary(previewCashFlowRows, household.lowBalanceThresholdCents);
+  const includedFutureCount = futureExpenses.filter((expense) => expense.status === "ACTIVE" && expense.includeInPlanPreview).length;
   const visibleRows = cashFlowActivityRows(cashFlowRows);
   const incomeAmounts = new Map(income.map((item) => [item.id, item.actualAmountCents ?? item.expectedAmountCents]));
   const incomeHasActual = new Map(income.map((item) => [item.id, item.actualAmountCents != null]));
@@ -136,6 +138,8 @@ export default async function CashFlowPage() {
         </div>
 
         {summary.nextLowBalanceDate ? <p className="mt-5 rounded-2xl border border-ledger-amber/40 bg-ledger-amber/15 p-4 text-sm text-yellow-100">Projected checking falls below {formatWholeMoney(summary.lowBalanceThresholdCents ?? 0)} on {formatDateLabel(summary.nextLowBalanceDate)}. Main causes: {summary.majorLowBalanceCauses.join(", ") || "upcoming outflows"}.</p> : null}
+
+        {includedFutureCount > 0 ? <div className="mt-5 rounded-2xl border border-ledger-blue/40 bg-ledger-blue/10 p-4 text-sm text-blue-100"><p className="font-bold">Future expense preview includes {includedFutureCount} active item{includedFutureCount === 1 ? "" : "s"}.</p><p className="mt-1">Preview lowest balance: {formatWholeMoney(previewSummary.lowestBalanceCents)}. {previewSummary.nextRiskDate ? `Negative risk starts ${formatDateLabel(previewSummary.nextRiskDate)}.` : previewSummary.nextLowBalanceDate ? `Low-balance risk starts ${formatDateLabel(previewSummary.nextLowBalanceDate)}.` : "No preview risk detected."}</p><a href="/future-expenses" className="mt-3 inline-block font-bold text-ledger-blue">Review future expenses</a></div> : null}
 
         <div className="mt-5 max-h-[38rem] overflow-auto rounded-2xl border border-white/10">
           <SimpleTable

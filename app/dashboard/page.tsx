@@ -2,6 +2,7 @@ import { AppShell } from "@/components/app-shell/app-shell";
 import { Card, Stat } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PieSummary } from "@/components/charts/budget-charts";
+import { getFutureExpenseStatusLabel, getPriorityLabel } from "@/lib/calculations/future-expenses";
 import { getCashFlowSummary } from "@/lib/cash-flow-view";
 import { formatDateLabel } from "@/lib/dates";
 import { formatWholeMoney } from "@/lib/money";
@@ -13,6 +14,8 @@ export default async function DashboardPage() {
   const [data, july, august] = await Promise.all([getBudgetData(), getMonthBundle("2026-07"), getMonthBundle("2026-08")]);
   const bundles = [july, august];
   const { categories, transactions } = data;
+  const upcomingFutureExpenses = data.futureExpenses.filter((expense) => expense.status === "ACTIVE").sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 3);
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
   const categoryData = categories.slice(0, 5).map((category) => ({ name: category.name, value: transactions.flatMap((tx) => tx.splits).filter((split) => split.categoryId === category.id).reduce((sum, split) => sum + split.amountCents / 100, 0) }));
   const outflowData = bundles.map((bundle) => ({ name: bundle.month.label, value: (bundle.summary.assignedCents / 100) }));
   return (
@@ -30,6 +33,10 @@ export default async function DashboardPage() {
         })}
       </div>
       <div className="mt-5 grid gap-5 lg:grid-cols-2"><Card><h2 className="font-display text-2xl">Variable spending by category</h2><PieSummary data={categoryData} /></Card><Card><h2 className="font-display text-2xl">Assigned outflow by month</h2><PieSummary data={outflowData} /></Card></div>
+      <Card className="mt-5">
+        <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="font-display text-3xl">Upcoming future expenses</h2><p className="mt-1 text-sm text-slate-400">Next obligations that can be previewed before they become official budget items.</p></div><a href="/future-expenses" className="rounded-xl border border-white/15 px-4 py-3 text-sm font-bold">Review future expenses</a></div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">{upcomingFutureExpenses.length ? upcomingFutureExpenses.map((expense) => <div key={expense.id} className="rounded-2xl border border-white/10 bg-white/5 p-4"><div className="flex items-start justify-between gap-3"><h3 className="font-display text-2xl">{expense.description}</h3><span className="rounded-full border border-ledger-amber/40 bg-ledger-amber/10 px-2 py-1 text-xs text-yellow-100">{expense.includeInPlanPreview ? "In preview" : "Preview off"}</span></div><p className="mt-2 font-mono text-2xl font-bold text-ledger-amber">{formatWholeMoney(expense.expectedAmountCents)}</p><p className="mt-1 text-sm text-slate-400">Due {formatDateLabel(expense.dueDate)} · {categoryById.get(expense.categoryId)?.name ?? "Unknown"} · {getPriorityLabel(expense.priority)}</p><p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">{getFutureExpenseStatusLabel(expense.status)}</p></div>) : <p className="text-sm text-slate-400">No active future expenses yet.</p>}</div>
+      </Card>
     </AppShell>
   );
 }

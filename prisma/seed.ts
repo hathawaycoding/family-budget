@@ -35,9 +35,11 @@ async function main() {
   await prisma.transaction.deleteMany({ where: { householdId } });
   await prisma.receipt.deleteMany({ where: { householdId } });
   await prisma.savingsActivity.deleteMany({ where: { householdId } });
+  await prisma.futureExpenseContribution.deleteMany({ where: { householdId } });
   await prisma.debtPayment.deleteMany({ where: { householdId } });
   await prisma.debtSnapshot.deleteMany({ where: { householdId } });
   await prisma.plannedExpense.deleteMany({ where: { householdId } });
+  await prisma.futureExpense.deleteMany({ where: { householdId } });
   await prisma.billInstance.deleteMany({ where: { householdId } });
   await prisma.incomeEntry.deleteMany({ where: { householdId } });
   await prisma.note.deleteMany({ where: { householdId } });
@@ -109,6 +111,11 @@ async function main() {
 
   await prisma.plannedExpense.create({ data: { householdId, budgetMonthId: monthIds.get("2026-08")!, date: date("2026-08-10"), description: "Back to school clothes", categoryId: categoryIds.get("Clothing")!, expectedAmountCents: 30000, createdByMemberId: actorId } });
   await prisma.plannedExpense.create({ data: { householdId, budgetMonthId: monthIds.get("2026-12")!, date: date("2026-12-15"), description: "Christmas gifts", categoryId: categoryIds.get("Gifts")!, expectedAmountCents: 50000, createdByMemberId: actorId } });
+
+  await prisma.futureExpense.create({ data: { householdId, budgetMonthId: monthIds.get("2026-08")!, description: "School supplies", expectedAmountCents: 45000, dueDate: date("2026-08-05"), categoryId: categoryIds.get("School")!, priority: "HIGH", notes: "Review backpack, notebooks, shoes, and teacher list before shopping.", type: "ONE_TIME", setAsideMode: "EQUAL_MONTHLY", includeInPlanPreview: true, createdByMemberId: actorId } });
+  const holidayTravel = await prisma.futureExpense.create({ data: { householdId, budgetMonthId: monthIds.get("2026-11")!, description: "Holiday travel", expectedAmountCents: 80000, dueDate: date("2026-11-20"), categoryId: categoryIds.get("Travel") ?? categoryIds.get("Transportation")!, priority: "MEDIUM", notes: "Estimate gas, one hotel night, and meals on the road.", type: "ONE_TIME", setAsideMode: "CUSTOM", includeInPlanPreview: true, createdByMemberId: members.get("TCH")! } });
+  await prisma.futureExpenseContribution.create({ data: { householdId, futureExpenseId: holidayTravel.id, budgetMonthId: monthIds.get("2026-08")!, date: date("2026-08-15"), plannedAmountCents: 20000, createdByMemberId: actorId } });
+  await prisma.futureExpenseContribution.create({ data: { householdId, futureExpenseId: holidayTravel.id, budgetMonthId: monthIds.get("2026-09")!, date: date("2026-09-15"), plannedAmountCents: 25000, createdByMemberId: actorId } });
 
   const carInsurance = await prisma.savingsFund.create({ data: { householdId, name: "Car Insurance", type: "SINKING", mode: "KNOWN_DUE_DATE", startingBalanceCents: 0, currentBalanceCents: 24500, targetAmountCents: 140000, dueDate: date("2027-01-30"), plannedContributionCents: 24500 } });
   const emergency = await prisma.savingsFund.create({ data: { householdId, name: "Emergency Fund", type: "EMERGENCY", mode: "OPEN_ENDED", startingBalanceCents: 120000, currentBalanceCents: 140000, targetAmountCents: 1000000, plannedContributionCents: 20000 } });

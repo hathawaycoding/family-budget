@@ -8,6 +8,7 @@ import { buildCashFlowRows } from "@/lib/calculations/cash-flow";
 import { canDeleteDebtAccount } from "@/lib/calculations/debt";
 import { getZeroBasedSummary } from "@/lib/calculations/zero-based-budget";
 import { getCategoryCarryover } from "@/lib/calculations/category-carryover";
+import { calculateCustomSetAsideProgress, calculateEqualMonthlySetAside, getIncludedFutureExpenses } from "@/lib/calculations/future-expenses";
 import { bills, categories, debtAccounts, income, months, plannedExpenses, savingsActivities, savingsFunds, transactions } from "@/lib/sample-data";
 import { activeSavingsFunds, canDeleteSavingsFund, canWithdraw, getSavingsActivityAmount, getSavingsActivityKind, getSavingsBalance, getSavingsFundStatus } from "@/lib/calculations/savings";
 import { billIdSchema, updateBillInstanceSchema, updateBillSchema } from "@/lib/validation/bills";
@@ -17,7 +18,7 @@ import { createSavingsFundSchema, savingsFundIdSchema, updateSavingsFundSchema }
 import { createDebtAccountSchema, debtAccountIdSchema, debtPaymentSchema, updateDebtAccountSchema } from "@/lib/validation/debt";
 import { noteSchema } from "@/lib/validation/notes";
 import { parseFormOrThrow } from "@/lib/validation/form";
-import type { BillInstance, BudgetMonth, CashFlowRow, IncomeEntry, SavingsFund, SpendingTransaction } from "@/lib/types";
+import type { BillInstance, BudgetMonth, CashFlowRow, FutureExpense, IncomeEntry, SavingsFund, SpendingTransaction } from "@/lib/types";
 
 describe("budget calculations", () => {
   it("rounds conservatively", () => {
@@ -186,6 +187,30 @@ describe("budget calculations", () => {
     ];
 
     expect(getCashFlowSummary(rows)).toEqual({ startingBalanceCents: 100000, endingBalanceCents: 40000, lowestBalanceCents: -10000, negativeDayCount: 1, nextRiskDate: "2026-07-02", lowBalanceThresholdCents: null, lowBalanceDayCount: 0, nextLowBalanceDate: null, majorLowBalanceCauses: [] });
+  });
+
+  it("includes only active checked future expenses in previews", () => {
+    const futureExpense: FutureExpense = { id: "future-1", monthId: "2026-07", description: "School supplies", expectedAmountCents: 45000, dueDate: "2026-07-20", categoryId: "school", priority: "HIGH", type: "ONE_TIME", status: "ACTIVE", setAsideMode: "EQUAL_MONTHLY", includeInPlanPreview: true, contributions: [] };
+
+    expect(getIncludedFutureExpenses([futureExpense, { ...futureExpense, id: "future-2", includeInPlanPreview: false }, { ...futureExpense, id: "future-3", status: "CANCELLED" }])).toEqual([futureExpense]);
+  });
+
+  it("adds checked future expenses to preview cash flow without making them editable", () => {
+    const month: BudgetMonth = { ...months[0], startingBalanceCents: 50000 };
+    const futureExpense: FutureExpense = { id: "future-cash", monthId: month.id, description: "School supplies", expectedAmountCents: 45001, dueDate: "2026-07-04", categoryId: "school", priority: "HIGH", type: "ONE_TIME", status: "ACTIVE", setAsideMode: "EQUAL_MONTHLY", includeInPlanPreview: true, contributions: [] };
+    const rows = buildCashFlowRows({ month, income: [], bills: [], transactions: [], plannedExpenses: [], futureExpenses: [futureExpense], includeFutureExpensePreview: true, savingsActivities: [], debtAccounts: [] });
+    const row = rows.find((item) => item.sourceId === futureExpense.id);
+
+    expect(row?.type).toBe("Future");
+    expect(row?.amountCents).toBe(-45100);
+    expect(row?.canEdit).toBeUndefined();
+  });
+
+  it("calculates equal monthly and custom future expense set-asides", () => {
+    const futureExpense: FutureExpense = { id: "future-setaside", monthId: "2026-08", description: "School supplies", expectedAmountCents: 45000, dueDate: "2026-08-05", categoryId: "school", priority: "HIGH", type: "ONE_TIME", status: "ACTIVE", setAsideMode: "CUSTOM", includeInPlanPreview: true, contributions: [{ id: "c1", futureExpenseId: "future-setaside", monthId: "2026-07", date: "2026-07-15", plannedAmountCents: 20000 }, { id: "c2", futureExpenseId: "future-setaside", monthId: "2026-08", date: "2026-08-01", plannedAmountCents: 25000 }] };
+
+    expect(calculateEqualMonthlySetAside(futureExpense, months, "2026-07")).toBe(22500);
+    expect(calculateCustomSetAsideProgress(futureExpense, futureExpense.contributions)).toEqual({ scheduledTotalCents: 45000, remainingCents: 0, isFunded: true });
   });
 
   it("returns safe empty cash-flow summary values", () => {
