@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
-export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <section className={cn("rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sheet backdrop-blur dark:border-white/10 dark:bg-white/[0.07]", className)}>{children}</section>;
+export function Card({ className, children, ...props }: React.ComponentProps<"section">) {
+  return <section className={cn("rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sheet backdrop-blur dark:border-white/10 dark:bg-white/[0.07]", className)} {...props}>{children}</section>;
 }
 
 export function Stat({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "good" | "warn" | "bad" | "info" }) {

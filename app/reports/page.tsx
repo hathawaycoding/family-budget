@@ -5,7 +5,7 @@ import { formatWholeMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
-const exports = ["transactions", "bills", "monthly-summary", "cash-flow", "planned-vs-actual", "debt-balances", "savings-goals"];
+const exports = ["transactions", "bills", "monthly-summary", "cash-flow", "planned-vs-actual", "future-expenses", "debt-balances", "savings-goals"];
 
 export default async function ReportsPage() {
   const { summary } = await getMonthBundle("2026-07");

@@ -99,6 +99,7 @@ family-budget/
     income/
     bills/
     spending/
+    future-expenses/
     savings/
     debt/
     reports/
@@ -113,6 +114,7 @@ family-budget/
     tables/
     forms/
     charts/
+    future-expenses/
     cash-flow/
     calendar/
     ui/
@@ -276,6 +278,7 @@ Required pages:
 - `/income`
 - `/bills`
 - `/spending`
+- `/future-expenses`
 - `/savings`
 - `/debt`
 - `/reports`
@@ -291,6 +294,7 @@ API/route handler areas:
 - `/api/exports/monthly-summary.csv`
 - `/api/exports/cash-flow.csv`
 - `/api/exports/planned-vs-actual.csv`
+- `/api/exports/future-expenses.csv`
 - `/api/exports/debt-balances.csv`
 - `/api/exports/savings-goals.csv`
 
@@ -341,6 +345,36 @@ Mobile layout:
 - Cash-flow warnings remain highly visible
 
 Mobile and desktop should have equal priority.
+
+### Future Expenses UI
+
+Future Expenses should be modern, friendly, and uncluttered.
+
+Desktop layout:
+
+- Compact worksheet table with expandable detail rows.
+- Show description, amount, due date, category, priority, status, set-aside progress, and risk badge upfront.
+- Use `Review` as the primary row action.
+- Put edit, convert, cancel, and complete actions in an overflow menu.
+
+Mobile layout:
+
+- Stacked cards with amount, due date, category, priority, and risk first.
+- Keep custom schedules, recurrence details, notes, and detailed cash-flow impact behind expandable sections.
+
+Create/edit flow:
+
+- Use a guided form with a live impact preview panel.
+- Include `Include in monthly plan preview` as a clear checkbox in the planning behavior section.
+- Keep notes, recurrence details, and custom contribution schedules collapsed until needed.
+
+Use concise badges such as:
+
+- Fits plan
+- Needs set-aside
+- Low-balance risk
+- Negative risk
+- Funded
 
 ## 15. Accessibility Requirements
 
@@ -421,6 +455,8 @@ Core model groups:
 - TransactionSplit
 - Receipt
 - PlannedExpense
+- FutureExpense
+- FutureExpenseContribution
 - SavingsFund
 - SavingsActivity
 - DebtAccount
@@ -693,6 +729,7 @@ categoryId
 expectedAmountCents
 actualAmountCents nullable
 isPaid
+sourceFutureExpenseId nullable
 createdByMemberId
 updatedByMemberId nullable
 createdAt
@@ -700,6 +737,62 @@ updatedAt
 ```
 
 Planned one-time expenses should appear in cash flow by date and count toward category budgets unless configured otherwise.
+
+### FutureExpense
+
+```text
+id
+householdId
+budgetMonthId nullable
+description
+expectedAmountCents
+dueDate
+categoryId
+priority: LOW | MEDIUM | HIGH | MUST_PAY
+notes nullable
+type: ONE_TIME | RECURRING
+recurrenceRuleId nullable
+status: DRAFT | ACTIVE | CONVERTED_TO_PLANNED_EXPENSE | CONVERTED_TO_SINKING_FUND | COMPLETED | CANCELLED
+setAsideMode: EQUAL_MONTHLY | CUSTOM
+includeInPlanPreview
+convertedPlannedExpenseId nullable
+convertedSavingsFundId nullable
+createdByMemberId
+updatedByMemberId nullable
+createdAt
+updatedAt
+```
+
+Future expenses are planning objects until converted. They should not affect official monthly budget or cash-flow totals directly.
+
+Only active future expenses with `includeInPlanPreview = true` should participate in preview calculations.
+
+Category is required.
+
+When converted to a planned one-time expense, `convertedPlannedExpenseId` should reference the official planned expense that affects budget and cash flow.
+
+When converted to a sinking fund, `convertedSavingsFundId` should reference the official savings fund. The original due-date obligation should remain visible as an obligation paid from that fund, without double counting the due-date expense against checking cash flow.
+
+### FutureExpenseContribution
+
+```text
+id
+householdId
+futureExpenseId
+budgetMonthId
+date nullable
+plannedAmountCents
+createdByMemberId
+updatedByMemberId nullable
+createdAt
+updatedAt
+```
+
+Use contribution rows for custom future expense set-aside schedules.
+
+Equal monthly set-aside schedules do not need persisted contribution rows unless the user customizes them.
+
+Custom contribution schedules should show scheduled total, remaining amount, and whether the future expense is funded by its due date.
 
 ## 26. Savings Models
 
@@ -714,6 +807,7 @@ mode: KNOWN_DUE_DATE | OPEN_ENDED
 targetAmountCents nullable
 dueDate nullable
 currentBalanceCents
+linkedFutureExpenseId nullable
 isActive
 createdAt
 updatedAt
@@ -902,6 +996,7 @@ lib/calculations/recurrence.ts
 lib/calculations/cash-flow.ts
 lib/calculations/zero-based-budget.ts
 lib/calculations/category-carryover.ts
+lib/calculations/future-expenses.ts
 lib/calculations/savings.ts
 lib/calculations/debt.ts
 lib/calculations/reports.ts
@@ -921,6 +1016,7 @@ Inputs:
 - Bill instances
 - Cash/debit transactions
 - Planned one-time expenses
+- Active future expenses included in preview mode
 - Savings contributions
 - Savings withdrawals
 - Credit card payments
@@ -935,6 +1031,7 @@ starting balance
 - rounded-up bills due that day
 - rounded-up cash/debit spending transactions
 - rounded-up planned one-time expenses
+- rounded-up preview future expenses when preview mode is enabled
 - rounded-up savings contributions
 + rounded-down savings withdrawals
 - rounded-up credit card payments
@@ -958,6 +1055,14 @@ Flag days where projected balance is below $0.
 If `Household.lowBalanceThresholdCents` is set, flag days where projected checking balance is below that threshold but not negative.
 
 Keep negative balance warnings separate and more severe than low-balance warnings.
+
+Future expense cash-flow rules:
+
+- Official cash-flow calculations should exclude unconverted future expenses.
+- Preview cash-flow calculations should include only active future expenses with `includeInPlanPreview = true`.
+- Converted planned expenses affect official cash flow through the linked `PlannedExpense`.
+- Converted sinking funds affect official cash flow through savings contributions and withdrawals.
+- A future expense converted to a sinking fund should keep the due-date obligation visible as paid from the linked fund, without double counting the original expense against checking cash flow.
 
 ## 33. Zero-Based Budget Engine
 
@@ -984,6 +1089,44 @@ Statuses:
 - Needs Review
 
 Zero-based status should recalculate after relevant data changes.
+
+Future expense zero-based rules:
+
+- Official zero-based calculations should exclude unconverted future expenses.
+- Preview zero-based calculations should include active future expenses with `includeInPlanPreview = true`.
+- Converted planned expenses should count through the linked `PlannedExpense`.
+- Converted sinking funds should count through linked savings contributions.
+
+## 33.1 Future Expense Planning Engine
+
+Future expense calculations should live outside UI components.
+
+Recommended functions:
+
+```text
+calculateFutureExpenseAffordabilityPreview
+calculateFutureExpenseCashFlowRisk
+calculateEqualMonthlySetAside
+calculateCustomSetAsideProgress
+projectRecurringFutureExpenses
+```
+
+Equal monthly set-aside:
+
+```text
+ceil(expected amount / available monthly periods)
+```
+
+Custom set-aside progress:
+
+```text
+scheduled total = sum planned contribution rows
+remaining amount = expected amount - scheduled total
+```
+
+If the custom schedule does not fully fund the expense by the due date, show a warning.
+
+Preview calculations should not mutate stored budget months, planned expenses, savings funds, or cash-flow state.
 
 ## 34. Category Carryover Engine
 
@@ -1034,6 +1177,16 @@ skipBill
 createTransaction
 updateTransaction
 deleteTransaction
+createFutureExpense
+updateFutureExpense
+deleteFutureExpense
+cancelFutureExpense
+completeFutureExpense
+convertFutureExpenseToPlannedExpense
+convertFutureExpenseToSinkingFund
+createFutureExpenseContribution
+updateFutureExpenseContribution
+deleteFutureExpenseContribution
 createSavingsActivity
 updateSavingsActivity
 createDebtSnapshot
@@ -1053,6 +1206,7 @@ GET /api/exports/bills.csv
 GET /api/exports/monthly-summary.csv
 GET /api/exports/cash-flow.csv
 GET /api/exports/planned-vs-actual.csv
+GET /api/exports/future-expenses.csv
 GET /api/exports/debt-balances.csv
 GET /api/exports/savings-goals.csv
 ```
@@ -1071,6 +1225,10 @@ Required rules:
 - Income amounts must be positive.
 - Transaction requires date, merchant, amount, and category/splits.
 - Split transaction split total must equal transaction total.
+- Future expense requires description, positive expected amount, due date, category, and priority.
+- Recurring future expense requires a recurrence rule.
+- Future expense custom contribution rows require positive amount and valid month or date.
+- Converted future expenses must not be converted again unless explicitly reset.
 - Savings withdrawal cannot exceed available fund balance.
 - Bill requires name, expected amount, and due date.
 - Delete actions require confirmation.
@@ -1089,6 +1247,7 @@ CSV exports required:
 - Monthly summary
 - Cash-flow timeline
 - Planned vs actual report
+- Future expenses
 - Debt balances
 - Savings goals
 
@@ -1124,6 +1283,9 @@ Unit tests:
 - Savings withdrawal validation
 - Debt interest estimate
 - Split transaction validation
+- Future expense validation
+- Future expense set-aside calculations
+- Future expense preview affordability and cash-flow risk
 
 Integration tests:
 
@@ -1131,6 +1293,7 @@ Integration tests:
 - Generate recurring paychecks
 - Generate recurring bills
 - Create transaction with receipt metadata
+- Create and convert future expense
 - Create audit event on mutation
 - CSV export generation
 - Month close
@@ -1142,6 +1305,7 @@ E2E tests:
 - Dashboard loads
 - Add transaction
 - Add split transaction
+- Add future expense and review preview impact
 - Mark bill paid
 - View negative cash-flow warning
 - Export CSV
@@ -1233,6 +1397,19 @@ Do not include personal identifiers, real bank names, account numbers, addresses
 - Add category carryover.
 - Add 80% category alerts.
 - Add receipt upload.
+
+### Phase 6.1: Future Expense Planning
+
+- Add future expense and contribution schedule models.
+- Add future expense validation schemas.
+- Add future expense calculation helpers for affordability preview, cash-flow risk, equal monthly set-aside, custom set-aside progress, and recurring projections.
+- Add server actions for create, update, cancel, complete, delete, and conversion flows.
+- Build `/future-expenses` page with uncluttered desktop table and mobile card layouts.
+- Add guided create/edit form with `Include in monthly plan preview` and live impact preview.
+- Add conversion to planned one-time expense.
+- Add conversion to sinking fund while keeping the due-date obligation visible as paid from the fund.
+- Add future expenses to dashboard, calendar, cash-flow preview, setup checklist, reports, exports, and audit history.
+- Add tests for validation, set-aside calculations, preview behavior, cash-flow risk, conversion, and double-count prevention.
 
 ### Phase 7: Savings
 

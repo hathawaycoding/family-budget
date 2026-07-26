@@ -8,6 +8,7 @@ import { billIdSchema, updateBillInstanceSchema, updateBillSchema } from "@/lib/
 import { incomeEntryIdSchema, updateIncomeActualSchema } from "@/lib/validation/income";
 import { createSavingsFundSchema, savingsActivitySchema, savingsFundIdSchema, updateSavingsFundSchema } from "@/lib/validation/savings";
 import { createDebtAccountSchema, debtAccountIdSchema, debtPaymentSchema, updateDebtAccountSchema } from "@/lib/validation/debt";
+import { createFutureExpenseSchema, deleteFutureExpenseContributionSchema, futureExpenseContributionSchema, futureExpenseIdSchema, updateFutureExpenseSchema } from "@/lib/validation/future-expenses";
 import { noteSchema } from "@/lib/validation/notes";
 import { categoryBudgetSchema, categoryIdSchema, createCategorySchema, lowBalanceThresholdSchema, renameCategorySchema } from "@/lib/validation/setup";
 import { parseFormOrThrow } from "@/lib/validation/form";
@@ -50,7 +51,7 @@ async function audit(householdId: string, actorMemberId: string, entityType: str
 }
 
 function revalidateBudgetPages() {
-  for (const path of ["/dashboard", "/cash-flow", "/calendar", "/income", "/bills", "/spending", "/savings", "/debt", "/reports", "/setup", "/notes", "/audit-history"]) revalidatePath(path);
+  for (const path of ["/dashboard", "/cash-flow", "/calendar", "/income", "/bills", "/spending", "/future-expenses", "/savings", "/debt", "/reports", "/setup", "/notes", "/audit-history"]) revalidatePath(path);
 }
 
 async function handledFormAction(action: () => Promise<string>): Promise<FormActionState> {
@@ -159,6 +160,107 @@ export async function deletePlannedExpenseAction(formData: FormData) {
   const existing = await prisma.plannedExpense.findFirstOrThrow({ where: { id: parsed.id, householdId: household.id } });
   await prisma.plannedExpense.delete({ where: { id: parsed.id } });
   await audit(household.id, member.id, "PlannedExpense", parsed.id, "deleted", null, { description: existing.description, expectedAmountCents: existing.expectedAmountCents, actualAmountCents: existing.actualAmountCents }, null);
+  revalidateBudgetPages();
+}
+
+export async function createFutureExpenseAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(createFutureExpenseSchema, { description: formString(formData, "description"), expectedAmountCents: formString(formData, "expectedAmount"), dueDate: formString(formData, "dueDate"), categoryId: formString(formData, "categoryId"), priority: formString(formData, "priority"), notes: formString(formData, "notes"), type: formString(formData, "type") || "ONE_TIME", setAsideMode: formString(formData, "setAsideMode") || "EQUAL_MONTHLY", includeInPlanPreview: formData.get("includeInPlanPreview") === "on" });
+  const budgetMonthId = await budgetMonthIdForDate(household.id, parsed.dueDate);
+  const created = await prisma.futureExpense.create({ data: { householdId: household.id, budgetMonthId, description: parsed.description, expectedAmountCents: parsed.expectedAmountCents, dueDate: date(parsed.dueDate), categoryId: parsed.categoryId, priority: parsed.priority, notes: parsed.notes || null, type: parsed.type, setAsideMode: parsed.setAsideMode, includeInPlanPreview: parsed.includeInPlanPreview, createdByMemberId: member.id } });
+  await audit(household.id, member.id, "FutureExpense", created.id, "created", null, null, { description: parsed.description, expectedAmountCents: parsed.expectedAmountCents, dueDate: parsed.dueDate });
+  revalidateBudgetPages();
+}
+
+export async function updateFutureExpenseAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(updateFutureExpenseSchema, { id: formString(formData, "id"), description: formString(formData, "description"), expectedAmountCents: formString(formData, "expectedAmount"), dueDate: formString(formData, "dueDate"), categoryId: formString(formData, "categoryId"), priority: formString(formData, "priority"), notes: formString(formData, "notes"), type: formString(formData, "type") || "ONE_TIME", setAsideMode: formString(formData, "setAsideMode") || "EQUAL_MONTHLY", includeInPlanPreview: formData.get("includeInPlanPreview") === "on" });
+  const existing = await prisma.futureExpense.findFirstOrThrow({ where: { id: parsed.id, householdId: household.id } });
+  if (!['DRAFT', 'ACTIVE'].includes(existing.status)) throw new Error("Converted, completed, or cancelled future expenses cannot be edited.");
+  const budgetMonthId = await budgetMonthIdForDate(household.id, parsed.dueDate);
+  await prisma.futureExpense.update({ where: { id: parsed.id }, data: { budgetMonthId, description: parsed.description, expectedAmountCents: parsed.expectedAmountCents, dueDate: date(parsed.dueDate), categoryId: parsed.categoryId, priority: parsed.priority, notes: parsed.notes || null, type: parsed.type, setAsideMode: parsed.setAsideMode, includeInPlanPreview: parsed.includeInPlanPreview, updatedByMemberId: member.id } });
+  await audit(household.id, member.id, "FutureExpense", parsed.id, "updated", null, { description: existing.description, expectedAmountCents: existing.expectedAmountCents, dueDate: dateOnly(existing.dueDate) }, { description: parsed.description, expectedAmountCents: parsed.expectedAmountCents, dueDate: parsed.dueDate });
+  revalidateBudgetPages();
+}
+
+export async function deleteFutureExpenseAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(futureExpenseIdSchema, { id: formString(formData, "id") });
+  const existing = await prisma.futureExpense.findFirstOrThrow({ where: { id: parsed.id, householdId: household.id } });
+  if (existing.convertedPlannedExpenseId || existing.convertedSavingsFundId) throw new Error("Converted future expenses cannot be deleted. Cancel or complete the linked item instead.");
+  await prisma.futureExpense.delete({ where: { id: parsed.id } });
+  await audit(household.id, member.id, "FutureExpense", parsed.id, "deleted", null, { description: existing.description, expectedAmountCents: existing.expectedAmountCents }, null);
+  revalidateBudgetPages();
+}
+
+async function setFutureExpenseStatus(formData: FormData, status: "CANCELLED" | "COMPLETED") {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(futureExpenseIdSchema, { id: formString(formData, "id") });
+  const existing = await prisma.futureExpense.findFirstOrThrow({ where: { id: parsed.id, householdId: household.id } });
+  await prisma.futureExpense.update({ where: { id: parsed.id }, data: { status, includeInPlanPreview: false, updatedByMemberId: member.id } });
+  await audit(household.id, member.id, "FutureExpense", parsed.id, status === "CANCELLED" ? "cancelled" : "completed", "status", { status: existing.status }, { status });
+  revalidateBudgetPages();
+}
+
+export async function cancelFutureExpenseAction(formData: FormData) {
+  await setFutureExpenseStatus(formData, "CANCELLED");
+}
+
+export async function completeFutureExpenseAction(formData: FormData) {
+  await setFutureExpenseStatus(formData, "COMPLETED");
+}
+
+export async function createFutureExpenseContributionAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(futureExpenseContributionSchema, { futureExpenseId: formString(formData, "futureExpenseId"), date: formString(formData, "date"), plannedAmountCents: formString(formData, "plannedAmount") });
+  const futureExpense = await prisma.futureExpense.findFirstOrThrow({ where: { id: parsed.futureExpenseId, householdId: household.id } });
+  if (futureExpense.status !== "ACTIVE") throw new Error("Only active future expenses can receive contribution schedule rows.");
+  const budgetMonthId = await budgetMonthIdForDate(household.id, parsed.date);
+  const created = await prisma.futureExpenseContribution.create({ data: { householdId: household.id, futureExpenseId: parsed.futureExpenseId, budgetMonthId, date: date(parsed.date), plannedAmountCents: parsed.plannedAmountCents, createdByMemberId: member.id } });
+  await audit(household.id, member.id, "FutureExpenseContribution", created.id, "created", null, null, { futureExpenseId: parsed.futureExpenseId, date: parsed.date, plannedAmountCents: parsed.plannedAmountCents });
+  revalidateBudgetPages();
+}
+
+export async function deleteFutureExpenseContributionAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(deleteFutureExpenseContributionSchema, { id: formString(formData, "id") });
+  const existing = await prisma.futureExpenseContribution.findFirstOrThrow({ where: { id: parsed.id, householdId: household.id } });
+  await prisma.futureExpenseContribution.delete({ where: { id: parsed.id } });
+  await audit(household.id, member.id, "FutureExpenseContribution", parsed.id, "deleted", null, { plannedAmountCents: existing.plannedAmountCents, date: existing.date ? dateOnly(existing.date) : null }, null);
+  revalidateBudgetPages();
+}
+
+export async function convertFutureExpenseToPlannedExpenseAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(futureExpenseIdSchema, { id: formString(formData, "id") });
+  const existing = await prisma.futureExpense.findFirstOrThrow({ where: { id: parsed.id, householdId: household.id } });
+  if (existing.status !== "ACTIVE") throw new Error("Only active future expenses can be converted.");
+  if (!existing.budgetMonthId) throw new Error("Future expense must be inside a budget month before conversion.");
+  await prisma.$transaction(async (db) => {
+    const planned = await db.plannedExpense.create({ data: { householdId: household.id, budgetMonthId: existing.budgetMonthId!, date: existing.dueDate, description: existing.description, categoryId: existing.categoryId, expectedAmountCents: existing.expectedAmountCents, sourceFutureExpenseId: existing.id, createdByMemberId: member.id } });
+    await db.futureExpense.update({ where: { id: existing.id }, data: { status: "CONVERTED_TO_PLANNED_EXPENSE", includeInPlanPreview: false, convertedPlannedExpenseId: planned.id, updatedByMemberId: member.id } });
+    await db.auditEvent.create({ data: { householdId: household.id, actorMemberId: member.id, entityType: "FutureExpense", entityId: existing.id, action: "converted_to_planned_expense", newValueJson: { plannedExpenseId: planned.id } } });
+  });
+  revalidateBudgetPages();
+}
+
+export async function convertFutureExpenseToSinkingFundAction(formData: FormData) {
+  const { household, member } = await getCurrentMember();
+  const parsed = parseFormOrThrow(futureExpenseIdSchema, { id: formString(formData, "id") });
+  const existing = await prisma.futureExpense.findFirstOrThrow({ where: { id: parsed.id, householdId: household.id }, include: { contributions: true } });
+  if (existing.status !== "ACTIVE") throw new Error("Only active future expenses can be converted.");
+  const months = await prisma.budgetMonth.findMany({ where: { householdId: household.id, startDate: { lte: existing.dueDate } }, orderBy: [{ year: "asc" }, { month: "asc" }] });
+  if (months.length === 0) throw new Error("No budget months are available for this sinking fund.");
+  const contributionCents = existing.contributions.length ? 0 : Math.ceil(existing.expectedAmountCents / months.length);
+  await prisma.$transaction(async (db) => {
+    const fund = await db.savingsFund.create({ data: { householdId: household.id, name: existing.description, type: "SINKING", mode: "KNOWN_DUE_DATE", targetAmountCents: existing.expectedAmountCents, dueDate: existing.dueDate, plannedContributionCents: contributionCents, linkedFutureExpenseId: existing.id } });
+    const rows = existing.contributions.length ? existing.contributions : months.map((month) => ({ budgetMonthId: month.id, date: new Date(`${month.year}-${String(month.month).padStart(2, "0")}-15T00:00:00.000Z`), plannedAmountCents: contributionCents }));
+    for (const row of rows) {
+      await db.savingsActivity.create({ data: { householdId: household.id, fundId: fund.id, budgetMonthId: row.budgetMonthId, date: row.date ?? existing.dueDate, type: "CONTRIBUTION", plannedAmountCents: row.plannedAmountCents, description: `${existing.description} set-aside`, createdByMemberId: member.id } });
+    }
+    await db.futureExpense.update({ where: { id: existing.id }, data: { status: "CONVERTED_TO_SINKING_FUND", includeInPlanPreview: false, convertedSavingsFundId: fund.id, updatedByMemberId: member.id } });
+    await db.auditEvent.create({ data: { householdId: household.id, actorMemberId: member.id, entityType: "FutureExpense", entityId: existing.id, action: "converted_to_sinking_fund", newValueJson: { savingsFundId: fund.id, obligationVisibleFromFund: true } } });
+  });
   revalidateBudgetPages();
 }
 

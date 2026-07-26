@@ -1,7 +1,11 @@
 export type Actor = "CS" | "TCH";
 export type MonthStatus = "Balanced" | "Needs Assignment" | "Underfunded" | "Cash-Flow Risk" | "Closed" | "Needs Review";
-export type CashFlowType = "Income" | "Bill" | "Spending" | "Savings" | "Debt" | "Transfer" | "Planned";
-export type CashFlowSourceType = "IncomeEntry" | "BillInstance" | "Transaction" | "PlannedExpense" | "SavingsActivity" | "DebtAccount";
+export type CashFlowType = "Income" | "Bill" | "Spending" | "Savings" | "Debt" | "Transfer" | "Planned" | "Future";
+export type CashFlowSourceType = "IncomeEntry" | "BillInstance" | "Transaction" | "PlannedExpense" | "SavingsActivity" | "DebtAccount" | "FutureExpense";
+export type FutureExpensePriority = "LOW" | "MEDIUM" | "HIGH" | "MUST_PAY";
+export type FutureExpenseType = "ONE_TIME" | "RECURRING";
+export type FutureExpenseStatus = "DRAFT" | "ACTIVE" | "CONVERTED_TO_PLANNED_EXPENSE" | "CONVERTED_TO_SINKING_FUND" | "COMPLETED" | "CANCELLED";
+export type FutureExpenseSetAsideMode = "EQUAL_MONTHLY" | "CUSTOM";
 
 export type BudgetMonth = {
   id: string;
@@ -72,6 +76,33 @@ export type PlannedExpense = {
   expectedAmountCents: number;
   actualAmountCents?: number | null;
   isPaid: boolean;
+  sourceFutureExpenseId?: string | null;
+};
+
+export type FutureExpenseContribution = {
+  id: string;
+  futureExpenseId: string;
+  monthId: string;
+  date?: string | null;
+  plannedAmountCents: number;
+};
+
+export type FutureExpense = {
+  id: string;
+  monthId?: string | null;
+  description: string;
+  expectedAmountCents: number;
+  dueDate: string;
+  categoryId: string;
+  priority: FutureExpensePriority;
+  notes?: string | null;
+  type: FutureExpenseType;
+  status: FutureExpenseStatus;
+  setAsideMode: FutureExpenseSetAsideMode;
+  includeInPlanPreview: boolean;
+  convertedPlannedExpenseId?: string | null;
+  convertedSavingsFundId?: string | null;
+  contributions: FutureExpenseContribution[];
 };
 
 export type SavingsFund = {
@@ -85,6 +116,7 @@ export type SavingsFund = {
   dueDate?: string | null;
   plannedContributionCents: number;
   isActive: boolean;
+  linkedFutureExpenseId?: string | null;
 };
 
 export type SavingsActivity = {

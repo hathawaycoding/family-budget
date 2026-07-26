@@ -10,9 +10,9 @@ const guideGroups = [
       {
         name: "Dashboard",
         href: "/dashboard",
-        does: "Shows two months side by side with income, bills, spending, assigned money, unassigned money, ending cash, risk days, and low-balance warnings when a checking cushion is configured.",
-        useWhen: "Start here when you want to know if the month is balanced, underfunded, headed for a cash-flow problem, or projected to dip below your low-balance threshold.",
-        action: "Open the cash-flow timeline from the dashboard if a month shows negative balance or low-balance risk."
+        does: "Shows two months side by side with income, bills, spending, assigned money, unassigned money, ending cash, risk days, upcoming future expenses, and low-balance warnings when a checking cushion is configured.",
+        useWhen: "Start here when you want to know if the month is balanced, underfunded, headed for a cash-flow problem, projected to dip below your low-balance threshold, or affected by upcoming future expenses.",
+        action: "Open the cash-flow timeline for balance warnings, or review Future Expenses when an upcoming obligation needs planning."
       },
       {
         name: "Setup",
@@ -24,9 +24,9 @@ const guideGroups = [
       {
         name: "Cash Flow",
         href: "/cash-flow",
-        does: "Shows dated money movement and the projected checking balance after each activity.",
-        useWhen: "Use this when you need to know which exact day the account may fall below the household threshold or go negative.",
-        action: "Review Low balance and Negative balance warnings separately, then edit dates or amounts from the activity row when the forecast needs correction."
+        does: "Shows dated money movement, the projected checking balance after each activity, and a separate preview summary when active future expenses are included in monthly plan preview.",
+        useWhen: "Use this when you need to know which exact day the account may fall below the household threshold, go negative, or become risky after previewed future expenses.",
+        action: "Review Low balance and Negative balance warnings separately, then edit dates or amounts from the activity row or open Future Expenses when the preview needs adjustment."
       }
     ]
   },
@@ -56,6 +56,13 @@ const guideGroups = [
         action: "Add transactions quickly and choose cash/debit or credit card treatment correctly."
       },
       {
+        name: "Future Expenses",
+        href: "/future-expenses",
+        does: "Plans upcoming costs before they become official budget items. Shows expected amount, due date, category, priority, preview status, set-aside guidance, and cash-flow risk.",
+        useWhen: "Use this when you know an expense is coming, like school supplies, travel, car repairs, holidays, or annual fees, but you have not decided whether to make it a planned expense or sinking fund yet.",
+        action: "Add the expense, keep Include in monthly plan preview on if you want warnings, then convert it to a planned expense or sinking fund when you are ready."
+      },
+      {
         name: "Savings",
         href: "/savings",
         does: "Manages savings funds, sinking funds, planned contributions, actual contributions, withdrawals, and remaining goals.",
@@ -78,16 +85,16 @@ const guideGroups = [
       {
         name: "Calendar",
         href: "/calendar",
-        does: "Shows paychecks, bill due dates, planned expenses, savings activity, debt payment dates, and cash-flow warning days on a monthly calendar.",
-        useWhen: "Use this when you want a date-based view of scheduled money movement and low-balance or negative-balance risk.",
-        action: "Scan the month for busy money days and warning labels before making spending decisions."
+        does: "Shows paychecks, bill due dates, planned expenses, future expense due dates, savings activity, debt payment dates, and cash-flow warning days on a monthly calendar.",
+        useWhen: "Use this when you want a date-based view of scheduled money movement, upcoming obligations, and low-balance or negative-balance risk.",
+        action: "Scan the month for busy money days, future expense due dates, and warning labels before making spending decisions."
       },
       {
         name: "Reports",
         href: "/reports",
-        does: "Summarizes planned versus actual results and provides CSV exports.",
-        useWhen: "Use this at the end of the month or when you want to review budget performance.",
-        action: "Download CSVs or compare planned amounts against what actually happened."
+        does: "Summarizes planned versus actual results and provides CSV exports, including future expenses.",
+        useWhen: "Use this at the end of the month or when you want to review budget performance and upcoming obligations.",
+        action: "Download CSVs, including future-expenses.csv, or compare planned amounts against what actually happened."
       },
       {
         name: "Notes",

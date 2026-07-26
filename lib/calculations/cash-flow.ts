@@ -1,6 +1,7 @@
 import { eachDay } from "@/lib/dates";
 import { expensePlanningCents, incomePlanningCents } from "@/lib/money";
-import type { BillInstance, BudgetMonth, CashFlowRow, DebtAccount, IncomeEntry, PlannedExpense, SavingsActivity, SpendingTransaction } from "@/lib/types";
+import { getIncludedFutureExpenses } from "@/lib/calculations/future-expenses";
+import type { BillInstance, BudgetMonth, CashFlowRow, DebtAccount, FutureExpense, IncomeEntry, PlannedExpense, SavingsActivity, SpendingTransaction } from "@/lib/types";
 
 type Args = {
   month: BudgetMonth;
@@ -8,6 +9,8 @@ type Args = {
   bills: BillInstance[];
   transactions: SpendingTransaction[];
   plannedExpenses: PlannedExpense[];
+  futureExpenses?: FutureExpense[];
+  includeFutureExpensePreview?: boolean;
   savingsActivities: SavingsActivity[];
   debtAccounts: DebtAccount[];
   lowBalanceThresholdCents?: number | null;
@@ -34,6 +37,11 @@ export function buildCashFlowRows(args: Args): CashFlowRow[] {
     }
     for (const item of args.plannedExpenses.filter((expense) => expense.date === date)) {
       events.push({ date, label: item.description, type: "Planned", amountCents: -expensePlanningCents(item.actualAmountCents ?? item.expectedAmountCents), sourceType: "PlannedExpense", sourceId: item.id, canEdit: true, canDelete: true });
+    }
+    if (args.includeFutureExpensePreview) {
+      for (const item of getIncludedFutureExpenses(args.futureExpenses ?? []).filter((expense) => expense.dueDate === date)) {
+        events.push({ date, label: item.description, type: "Future", amountCents: -expensePlanningCents(item.expectedAmountCents), sourceType: "FutureExpense", sourceId: item.id });
+      }
     }
     for (const item of args.savingsActivities.filter((activity) => activity.date === date)) {
       const amount = item.actualAmountCents ?? item.plannedAmountCents ?? 0;

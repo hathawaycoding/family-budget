@@ -52,17 +52,24 @@ Main causes: Mortgage, groceries budget, student loans
 
 ## 3. Future Expense Planning
 
+Status: promoted into MVP scope. The source of truth for this feature is now `Plans/plan.md`, with implementation guidance in `Plans/design.md`.
+
 The app should make it easy to plan for upcoming expenses before they become urgent.
 
 Future behavior:
 
 - Add a future expense planning flow.
 - Track expected amount, due date, category, priority, and notes.
+- Require a category.
 - Support one-time and recurring future expenses.
+- Support an `Include in monthly plan preview` option per future expense.
 - Show whether a future expense fits in the monthly plan.
 - Show whether the expense creates a low-balance or negative-balance risk.
 - If the expense is not affordable immediately, calculate a suggested monthly set-aside.
+- Support both equal monthly set-asides and custom contribution schedules.
 - Allow converting a future expense into a planned one-time expense or sinking fund.
+- When converted to a sinking fund, keep the original due-date expense visible as an obligation paid from that fund.
+- Keep the UI modern, friendly, and uncluttered by showing key status first and hiding detailed calculations behind review/expand controls.
 - Show future expenses in the calendar, cash-flow timeline, setup checklist, and relevant reports.
 
 Example:
@@ -115,7 +122,7 @@ Recommended future phases:
 1. Add a setup prompt for the household's low-balance threshold.
 2. Store the user-entered threshold.
 3. Add low-balance forecasting warnings after a threshold exists.
-4. Add future expense planner and affordability checks.
+4. Add future expense planner and affordability checks. This has been promoted into MVP scope and should be implemented from `Plans/plan.md` and `Plans/design.md`.
 5. Add mobile `Shopping Check` screen or PWA shortcut.
 6. Consider browser extension support for shopping websites.
 7. Consider Android companion support if native app detection is still desired.

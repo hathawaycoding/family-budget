@@ -31,6 +31,7 @@ Do not include tax preparation features in version 1. A normal `Taxes` budget/sa
 - Bill tracking.
 - Variable spending and transactions.
 - Planned one-time expenses.
+- Future expense planning.
 - Savings and sinking funds.
 - Credit-card debt tracker.
 - Reports and charts.
@@ -82,6 +83,7 @@ The app should include these primary sections:
 - Income
 - Bills
 - Spending
+- Future Expenses
 - Savings
 - Debt
 - Reports
@@ -184,6 +186,8 @@ Statuses:
 
 The dashboard and monthly worksheet should clearly show zero-based status.
 
+Future expenses should be excluded from official zero-based budget totals until converted. Active future expenses with `Include in monthly plan preview` enabled may be included in separate preview calculations.
+
 ## 9. Dashboard
 
 The app should open to the dashboard after login.
@@ -211,6 +215,7 @@ Dashboard should include:
 - Month status
 - Cash-flow timeline shortcut
 - Category alerts when spending reaches 80% of available budget
+- Upcoming future expenses that are included in monthly plan preview
 - Negative cash-flow warning if projected balance goes below $0
 - Low-balance warning if the household has configured a checking cushion threshold and projected checking falls below it
 
@@ -252,6 +257,7 @@ Cash flow should include:
 - Bills
 - Variable spending transactions
 - Planned one-time expenses
+- Future expenses included in preview mode
 - Savings contributions
 - Savings withdrawals
 - Credit card payments
@@ -313,6 +319,7 @@ Calendar should show:
 - Income dates
 - Bill due dates
 - Planned expenses
+- Future expenses
 - Due dates
 - Savings contribution dates if scheduled
 - Credit card payment due dates
@@ -596,6 +603,116 @@ Planned one-time expenses should:
 - Be markable as paid/done if implemented
 - Count toward category budgets unless builder/user config says otherwise
 
+## 22.1 Future Expense Planning
+
+The app should support future expense planning so the household can prepare for upcoming expenses before they become urgent or committed to the monthly budget.
+
+Future expenses are planning objects until converted. They should not automatically become official planned one-time expenses, savings contributions, or cash-flow events unless converted or explicitly included in preview calculations.
+
+Future expense fields:
+
+- Description
+- Expected amount
+- Due date
+- Category
+- Priority
+- Notes
+- One-time or recurring type
+- Include in monthly plan preview yes/no
+- Set-aside mode: equal monthly or custom schedule
+- Status
+
+Category is required for future expenses.
+
+Priority values should support at least:
+
+- Low
+- Medium
+- High
+- Must Pay
+
+Future expense statuses should support at least:
+
+- Draft
+- Active
+- Converted to planned expense
+- Converted to sinking fund
+- Completed
+- Cancelled
+
+The `Include in monthly plan preview` option should default to yes for active future expenses.
+
+Preview rules:
+
+- Only active future expenses with `Include in monthly plan preview` enabled should participate in preview calculations.
+- Preview calculations should show affordability and cash-flow risk without permanently changing the official monthly budget.
+- Official zero-based budget calculations should include converted planned expenses or converted savings contributions, not the original future expense planning object.
+- Cancelled and completed future expenses should not appear in active preview calculations.
+
+The app should show whether each future expense fits in the monthly plan.
+
+The app should show whether each future expense creates a low-balance or negative-balance risk.
+
+Negative balance warnings should appear even when no low-balance threshold is configured.
+
+Low-balance warnings should appear only when the household has configured a checking cushion threshold.
+
+If a future expense is not affordable immediately, the app should calculate a suggested monthly set-aside.
+
+Set-aside planning should support both:
+
+- Equal monthly contributions
+- Custom contribution schedules
+
+Equal monthly set-asides should be rounded conservatively so the full expected amount is funded by the due date.
+
+Custom contribution schedules should show the scheduled total, remaining amount, and whether the expense is funded by the due date.
+
+The app should allow converting a future expense into:
+
+- A planned one-time expense
+- A sinking fund
+
+When a future expense is converted to a planned one-time expense, the planned expense should become the official budget and cash-flow item.
+
+When a future expense is converted to a sinking fund, the original due-date expense should remain visible as an obligation paid from that fund. The app must avoid double counting by counting the sinking fund contributions in official budget/cash-flow calculations, while treating the original due-date obligation as linked obligation visibility unless an actual checking withdrawal is needed.
+
+Future expenses should appear in:
+
+- Future Expenses page
+- Dashboard upcoming future expenses card
+- Calendar
+- Cash-flow preview
+- Setup checklist
+- Reports
+- Audit history
+
+The Future Expenses UI should be user-friendly, modern, and uncluttered.
+
+UI rules:
+
+- Desktop should use a compact worksheet table with expandable detail rows.
+- Mobile should use stacked cards that show the most important details first.
+- Show name, amount, due date, category, priority, status, and risk badge upfront.
+- Hide notes, recurrence details, custom contribution schedules, and detailed cash-flow impact behind review or expand controls.
+- Use concise status badges such as `Fits plan`, `Needs set-aside`, `Low-balance risk`, `Negative risk`, and `Funded`.
+- Use one primary action per row or card, such as `Review`.
+- Put secondary actions such as edit, convert, cancel, or complete in a menu.
+- Limit dashboard display to the next three urgent or upcoming future expenses.
+
+Example:
+
+```text
+School supplies
+Due: August 5, 2026
+Expected amount: $450
+Category: School
+Priority: High
+Included in monthly plan preview: Yes
+Impact: Projected balance drops to $214 on August 6
+Suggested set-aside: $225/month for 2 months
+```
+
 ## 23. Split Transactions
 
 The app should support split transactions.
@@ -805,6 +922,7 @@ Reports should include:
 - Bills list
 - Spending transactions
 - Planned vs actual by category
+- Future expenses and upcoming obligations
 - Savings goals
 - Debt balances
 
@@ -869,6 +987,7 @@ Example checklist:
 - Review savings contributions.
 - Review credit card minimum payments and extra payments.
 - Confirm planned one-time expenses.
+- Review future expenses and upcoming obligations.
 - Check zero-based budget equals $0.
 - Check projected cash flow for negative days.
 - Optional: set or review the household low-balance checking threshold.
@@ -901,6 +1020,7 @@ Audit history should show meaningful changes across:
 - Income
 - Bills
 - Transactions
+- Future expenses
 - Spending categories
 - Savings
 - Debt
@@ -1073,6 +1193,10 @@ Required validations:
 - Category 80% usage warning should appear when threshold is reached.
 - Negative projected cash flow warning should appear when balance drops below $0.
 - Low-balance warning should appear only when a household threshold is configured and projected checking falls below it.
+- Future expense must have description, positive expected amount, due date, category, and priority.
+- Recurring future expense must have a recurrence rule.
+- Custom future expense set-aside schedule rows must have a positive amount and valid month or date.
+- Converted future expenses must not double count in official monthly budget or cash-flow calculations.
 - Zero-based budget status should be recalculated after relevant changes.
 
 ## 42. Testing Checklist
@@ -1104,6 +1228,14 @@ The builder should verify:
 - Receipt upload attaches to transaction.
 - Credit card transaction counts toward spending but does not reduce checking unless marked cash/debit.
 - Credit card payment appears as bill and reduces debt if linked.
+- Future expenses require a category.
+- Equal monthly future expense set-aside calculates conservatively.
+- Custom future expense contribution schedules show funded and remaining amounts.
+- Future expense preview does not permanently change official monthly budget totals.
+- Future expense preview detects negative cash-flow risk.
+- Future expense preview detects low-balance risk only when a household threshold is configured.
+- Future expense conversion to planned expense avoids double counting.
+- Future expense conversion to sinking fund keeps the due-date obligation visible as paid from the fund.
 - Debt monthly interest estimate calculates.
 - Debt line chart shows monthly trend.
 - Savings balances roll forward.
