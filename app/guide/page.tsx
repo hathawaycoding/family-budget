@@ -142,7 +142,7 @@ export default function GuidePage() {
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               {group.sections.map((section) => (
-                <article key={section.href} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <article key={section.name} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="font-display text-3xl">{section.name}</h2>
                     <Link href={section.href} className="rounded-xl border border-ledger-blue/50 px-3 py-2 text-sm font-bold text-ledger-blue hover:bg-ledger-blue/10 focus-visible:ring-2 focus-visible:ring-ledger-blue">
